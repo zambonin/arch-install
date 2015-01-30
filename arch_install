@@ -22,7 +22,7 @@ mkdir -p /mnt/home
 mount /dev/sda3 /mnt/home
 
 # select mirror
-echo $'Server = http://pet.inf.ufsc.br/mirrors/archlinux/$repo/os/$arch\nServer = http://archlinux.c3sl.ufpr.br/' > /etc/pacman.d/mirrorlist
+curl "https://www.archlinux.org/mirrorlist/?country=BR&protocol=http&ip_version=4" | sed 's/#Server/Server/g' > /etc/pacman.d/mirrorlist
 
 # install base system
 pacstrap /mnt base base-devel

@@ -4,9 +4,9 @@
 parted -s --align optimal -- /dev/sda mklabel gpt
 parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 513M
 parted -s --align optimal -- /dev/sda set 1 boot on
-parted -s --align optimal -- /dev/sda mkpart primary ext3 513M 10.5G
+parted -s --align optimal -- /dev/sda mkpart primary ext3 513M 10G
 parted -s --align optimal -- /dev/sda name 2 root
-parted -s --align optimal -- /dev/sda mkpart primary ext3 10.5G 100%
+parted -s --align optimal -- /dev/sda mkpart primary ext3 10G 100%
 parted -s --align optimal -- /dev/sda name 3 home
 
 # create filesystems
@@ -35,9 +35,9 @@ arch-chroot /mnt /bin/bash
 pacman -S --noconfirm dosfstools efibootmgr gummiboot sudo bash-completion
 
 # set up locale
-echo $'pt_BR.UTF-8' >> /etc/locale.gen
+echo "pt_BR.UTF-8" > /etc/locale.gen
 locale-gen
-echo LANG=pt_BR.UTF-8 >> /etc/locale.conf
+echo "LANG=pt_BR.UTF-8" > /etc/locale.conf
 export LANG=pt_BR.UTF-8
 
 # set up time zone and clock
@@ -53,7 +53,7 @@ echo "stenny:password" | chpasswd
 # install low-level
 mkinitcpio -p linux
 gummiboot --path=/boot install
-echo $'title          Arch Linux\nlinux          /vmlinuz-linux\ninitrd         /initramfs-linux.img\noptions        root=/dev/sda2 rw' >> /boot/loader/entries/arch.conf
-echo $'default	arch\ntimeout	5' >> /boot/loader/loader.conf
+echo $'title          Arch Linux\nlinux          /vmlinuz-linux\ninitrd         /initramfs-linux.img\noptions        root=/dev/sda2 rw' > /boot/loader/entries/arch.conf
+echo $'default	arch\ntimeout	5' > /boot/loader/loader.conf
 
 echo $'Good luck! Do not forget to setup sudo on your way out. Edit the /etc/sudoers file and uncomment the %wheel line.'

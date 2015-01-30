@@ -1,0 +1,59 @@
+#!/bin/bash
+
+# partition the disk
+parted -s --align optimal -- /dev/sda mklabel gpt
+parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 513M
+parted -s --align optimal -- /dev/sda set 1 boot on
+parted -s --align optimal -- /dev/sda mkpart primary ext3 513M 10.5G
+parted -s --align optimal -- /dev/sda name 2 root
+parted -s --align optimal -- /dev/sda mkpart primary ext3 10.5G 100%
+parted -s --align optimal -- /dev/sda name 3 home
+
+# create filesystems
+mkfs.vfat -F32 -s2 /dev/sda1
+mkfs.ext4 /dev/sda2
+mkfs.ext4 /dev/sda3
+
+# mount partitions
+mount /dev/sda2 /mnt
+mkdir -p /mnt/boot
+mount /dev/sda1 /mnt/boot
+mkdir -p /mnt/home
+mount /dev/sda3 /mnt/home
+
+# select mirror
+echo $'Server = http://pet.inf.ufsc.br/mirrors/archlinux/$repo/os/$arch\nServer = http://archlinux.c3sl.ufpr.br/' >> /etc/pacman.d/mirrorlist
+
+# install base system
+pacstrap -i /mnt base base-devel
+
+# generate fstab
+genfstab -U -p /mnt >> /mnt/etc/fstab
+
+# chroot and install packages
+arch-chroot /mnt /bin/bash
+pacman -S --noconfirm dosfstools efibootmgr gummiboot sudo bash-completion
+
+# set up locale
+echo $'pt_BR.UTF-8' >> /etc/locale.gen
+locale-gen
+echo LANG=pt_BR.UTF-8 >> /etc/locale.conf
+export LANG=pt_BR.UTF-8
+
+# set up time zone and clock
+ln -s /usr/share/zoneinfo/Brazil/East /etc/localtime
+hwclock --systohc --utc
+
+# set up hostname and users
+echo Turing >> /etc/hostname
+echo "root:password" | chpasswd --root /
+useradd -m -g users -G wheel,storage,power -s /bin/bash stenny
+echo "stenny:password" | chpasswd
+
+# install low-level
+mkinitcpio -p linux
+gummiboot --path=/boot install
+echo $'title          Arch Linux\nlinux          /vmlinuz-linux\ninitrd         /initramfs-linux.img\noptions        root=/dev/sda2 rw' >> /boot/loader/entries/arch.conf
+echo $'default	arch\ntimeout	5' >> /boot/loader/loader.conf
+
+echo $'Good luck! Do not forget to setup sudo on your way out. Edit the /etc/sudoers file and uncomment the %wheel line.'

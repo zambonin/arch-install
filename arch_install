@@ -37,6 +37,7 @@ arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr gummiboot bash-comp
 arch-chroot /mnt echo "pt_BR.UTF-8 UTF-8" > /mnt/etc/locale.gen
 arch-chroot /mnt locale-gen
 arch-chroot /mnt localectl set-locale LANG=pt_BR.UTF-8
+# arch-chroot /mnt export LANG=pt_BR.UTF-8
 
 # set up time zone and clock
 arch-chroot /mnt ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
@@ -46,7 +47,7 @@ arch-chroot /mnt hwclock --systohc --utc
 arch-chroot /mnt echo "Turing" > /mnt/etc/hostname
 arch-chroot /mnt echo "root:password" | arch-chroot /mnt chpasswd --root /mnt
 arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /mnt/bin/bash stenny
-arch-chroot /mnt echo $'password\n' | arch-chroot /mnt passwd stenny
+# arch-chroot /mnt echo $'password\npassword\n' | arch-chroot /mnt passwd stenny
 
 # install low-level
 arch-chroot /mnt mkinitcpio -p linux
@@ -54,4 +55,4 @@ arch-chroot /mnt gummiboot --path=/mnt/boot install
 arch-chroot /mnt echo $'title          Arch Linux\nlinux          /vmlinuz-linux\ninitrd         /initramfs-linux.img\noptions        root=/dev/sda2 rw' > /mnt/boot/loader/entries/arch.conf
 arch-chroot /mnt echo $'default	arch\ntimeout	5' > /mnt/boot/loader/loader.conf
 
-echo $'* Edit the /etc/sudoers file and uncomment the %wheel line.\n* Please do export LANG=pt_BR.UTF-8 as soon as possible.\nHere are your bash statistics:'
+echo $'* Edit the /etc/sudoers file and uncomment the %wheel line.\nHere are your bash statistics:'

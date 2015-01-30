@@ -34,9 +34,9 @@ genfstab -U -p /mnt >> /mnt/etc/fstab
 arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr gummiboot bash-completion
 
 # set up locale
-arch-chroot /mnt echo "pt_BR.UTF-8" > /etc/locale.gen
+arch-chroot /mnt echo "pt_BR.UTF-8 UTF-8" > /etc/locale.gen
 arch-chroot /mnt locale-gen
-arch-chroot /mnt echo "LANG=pt_BR.UTF-8" > /etc/locale.conf
+arch-chroot /mnt localectl set-locale LANG=en_US.UTF-8
 arch-chroot /mnt export LANG=pt_BR.UTF-8
 
 # set up time zone and clock

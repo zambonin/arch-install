@@ -44,7 +44,7 @@ arch-chroot /mnt ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
 arch-chroot /mnt hwclock --systohc --utc
 
 # set up hostname and users
-arch-chroot /mnt echo Turing > /etc/hostname
+arch-chroot /mnt echo "Turing" > /etc/hostname
 arch-chroot /mnt echo "root:password" | arch-chroot /mnt chpasswd --root /
 arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash stenny
 arch-chroot /mnt echo $'password\n' | arch-chroot /mnt passwd stenny
@@ -52,7 +52,7 @@ arch-chroot /mnt echo $'password\n' | arch-chroot /mnt passwd stenny
 # install low-level
 arch-chroot /mnt mkinitcpio -p linux
 arch-chroot /mnt gummiboot --path=/boot install
-arch-chroot /mnt echo $'title          Arch Linux\nlinux          /vmlinuz-linux\ninitrd         /initramfs-linux.img\noptions        root=/dev/sda2 rw' > /mnt/boot/loader/entries/arch.conf
-arch-chroot /mnt echo $'default	arch\ntimeout	5' > /mnt/boot/loader/loader.conf
+arch-chroot /mnt echo $'title          Arch Linux\nlinux          /vmlinuz-linux\ninitrd         /initramfs-linux.img\noptions        root=/dev/sda2 rw' > /boot/loader/entries/arch.conf
+arch-chroot /mnt echo $'default	arch\ntimeout	5' > /boot/loader/loader.conf
 
-echo $'Good luck! Do not forget to setup sudo on your way out. Edit the /etc/sudoers file and uncomment the %wheel line.\nHere are your bash statistics:'
+echo $'Good luck!\n	* Edit the /etc/sudoers file and uncomment the %wheel line.\n * \nHere are your bash statistics:'

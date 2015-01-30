@@ -37,7 +37,7 @@ arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr gummiboot bash-comp
 arch-chroot /mnt echo "pt_BR.UTF-8 UTF-8" > /etc/locale.gen
 arch-chroot /mnt locale-gen
 arch-chroot /mnt localectl set-locale LANG=pt_BR.UTF-8
-arch-chroot /mnt export LANG=pt_BR.UTF-8
+# arch-chroot /mnt export LANG=pt_BR.UTF-8
 
 # set up time zone and clock
 arch-chroot /mnt ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
@@ -47,7 +47,8 @@ arch-chroot /mnt hwclock --systohc --utc
 arch-chroot /mnt echo $'Turing' > /etc/hostname
 arch-chroot /mnt echo "root:password" | arch-chroot /mnt chpasswd --root /
 arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash stenny
-arch-chroot /mnt echo "stenny:password" | arch-chroot /mnt chpasswd --root /mnt
+# arch-chroot /mnt echo "stenny:password" | arch-chroot /mnt chpasswd --root /mnt
+arch-chroot /mnt echo $'password\npassword\n' | arch-chroot /mnt passwd stenny
 
 # install low-level
 arch-chroot /mnt mkinitcpio -p linux

@@ -8,13 +8,11 @@ parted -s --align optimal -- /dev/sda mkpart primary ext3 513M 10G
 parted -s --align optimal -- /dev/sda name 2 root
 parted -s --align optimal -- /dev/sda mkpart primary ext3 10G 100%
 parted -s --align optimal -- /dev/sda name 3 home
-echo "Partitioning complete..."
 
 # create filesystems
 mkfs.vfat -F32 -s2 /dev/sda1
 mkfs.ext4 /dev/sda2
 mkfs.ext4 /dev/sda3
-echo "Filesystems created..."
 
 # mount partitions
 mount /dev/sda2 /mnt
@@ -22,44 +20,39 @@ mkdir -p /mnt/boot
 mount /dev/sda1 /mnt/boot
 mkdir -p /mnt/home
 mount /dev/sda3 /mnt/home
-echo "Mounting complete..."
 
 # select mirror
 echo $'Server = http://pet.inf.ufsc.br/mirrors/archlinux/$repo/os/$arch\nServer = http://archlinux.c3sl.ufpr.br/' >> /etc/pacman.d/mirrorlist
-echo "Mirror chosen..."
 
 # install base system
 pacstrap /mnt base base-devel
-echo "Base system installed..."
 
 # generate fstab
 genfstab -U -p /mnt >> /mnt/etc/fstab
-echo "Fstab generated..."
 
-# chroot and install packages
-arch-chroot /mnt /bin/bash
-pacman -S --noconfirm dosfstools efibootmgr gummiboot sudo bash-completion
+# install packages
+arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr gummiboot bash-completion
 
 # set up locale
-echo "pt_BR.UTF-8" > /etc/locale.gen
-locale-gen
-echo "LANG=pt_BR.UTF-8" > /etc/locale.conf
-export LANG=pt_BR.UTF-8
+arch-chroot /mnt echo "pt_BR.UTF-8" > /etc/locale.gen
+arch-chroot /mnt locale-gen
+arch-chroot /mnt echo "LANG=pt_BR.UTF-8" > /etc/locale.conf
+arch-chroot /mnt export LANG=pt_BR.UTF-8
 
 # set up time zone and clock
-ln -s /usr/share/zoneinfo/Brazil/East /etc/localtime
-hwclock --systohc --utc
+arch-chroot /mnt ln -s /usr/share/zoneinfo/Brazil/East /etc/localtime
+arch-chroot /mnt hwclock --systohc --utc
 
 # set up hostname and users
-echo Turing >> /etc/hostname
-echo "root:password" | chpasswd --root /
-useradd -m -g users -G wheel,storage,power -s /bin/bash stenny
-echo "stenny:password" | chpasswd
+arch-chroot /mnt echo Turing >> /etc/hostname
+arch-chroot /mnt echo "root:password" | chpasswd --root /
+arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash stenny
+arch-chroot /mnt echo "stenny:password" | chpasswd
 
 # install low-level
-mkinitcpio -p linux
-gummiboot --path=/boot install
-echo $'title          Arch Linux\nlinux          /vmlinuz-linux\ninitrd         /initramfs-linux.img\noptions        root=/dev/sda2 rw' > /boot/loader/entries/arch.conf
-echo $'default	arch\ntimeout	5' > /boot/loader/loader.conf
+arch-chroot /mnt mkinitcpio -p linux
+arch-chroot /mnt gummiboot --path=/boot install
+arch-chroot /mnt echo $'title          Arch Linux\nlinux          /vmlinuz-linux\ninitrd         /initramfs-linux.img\noptions        root=/dev/sda2 rw' > /boot/loader/entries/arch.conf
+arch-chroot /mnt echo $'default	arch\ntimeout	5' > /boot/loader/loader.conf
 
 echo $'Good luck! Do not forget to setup sudo on your way out. Edit the /etc/sudoers file and uncomment the %wheel line.'

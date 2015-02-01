@@ -10,7 +10,7 @@ parted -s --align optimal -- /dev/sda mkpart primary ext3 10G 100%
 parted -s --align optimal -- /dev/sda name 3 home
 
 # create filesystems
-mkfs.vfat -F32 -s2 /dev/sda1
+mkfs.vfat -F32 /dev/sda1
 mkfs.ext4 /dev/sda2
 mkfs.ext4 /dev/sda3
 
@@ -31,12 +31,12 @@ pacstrap /mnt base base-devel
 genfstab -U -p /mnt >> /mnt/etc/fstab
 
 # install packages
-arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr gummiboot bash-completion
+arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr grub bash-completion
 
 # set up locale
 arch-chroot /mnt echo "pt_BR.UTF-8 UTF-8" > /mnt/etc/locale.gen
 arch-chroot /mnt locale-gen
-arch-chroot /mnt localectl set-locale LANG=pt_BR.UTF-8
+arch-chroot /mnt echo "pt_BR.UTF-8" > /mnt/etc/locale.conf
 # arch-chroot /mnt export LANG=pt_BR.UTF-8
 
 # set up time zone and clock
@@ -45,14 +45,12 @@ arch-chroot /mnt hwclock --systohc --utc
 
 # set up hostname and users
 arch-chroot /mnt echo "Turing" > /mnt/etc/hostname
-arch-chroot /mnt echo "root:password" | arch-chroot /mnt chpasswd --root /mnt
-arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /mnt/bin/bash stenny
-# arch-chroot /mnt echo $'password\npassword\n' | arch-chroot /mnt passwd stenny
+arch-chroot /mnt passwd
+arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash stenny
+arch-chroot /mnt passwd stenny
+arch-chroot /mnt sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
 
-# install low-level
+# kernel and bootloader
 arch-chroot /mnt mkinitcpio -p linux
-arch-chroot /mnt gummiboot --path=/mnt/boot install
-arch-chroot /mnt echo $'title          Arch Linux\nlinux          /vmlinuz-linux\ninitrd         /initramfs-linux.img\noptions        root=/dev/sda2 rw' > /mnt/boot/loader/entries/arch.conf
-arch-chroot /mnt echo $'default	arch\ntimeout	5' > /mnt/boot/loader/loader.conf
-
-echo $'* Edit the /etc/sudoers file and uncomment the %wheel line.\nHere are your bash statistics:'
+arch-chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=Arch --recheck
+arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg

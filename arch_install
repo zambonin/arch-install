@@ -1,17 +1,6 @@
 #!/bin/bash
 
-echo "Choose your firmware type [UEFI/BIOS]:"
-read bootloader
-shopt -s nocasematch
-if [ $bootloader =~ "uefi" ]; then
-	uefi()
-elif [ $bootloader =~ "bios" ]; then
-	bios()
-else
-	echo "Invalid option!"
-fi
-
-uefi() {
+uefi () {
 	uefi_partitioning
 	base_system
 	arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr gummiboot
@@ -19,7 +8,7 @@ uefi() {
 	uefi_bootloader
 }
 
-bios() {
+bios () {
 	bios_partitioning
 	base_system
 	arch-chroot /mnt pacman -S --noconfirm grub
@@ -27,7 +16,7 @@ bios() {
 	bios_bootloader
 }
 
-uefi_partitioning() {
+uefi_partitioning () {
 	parted -s --align optimal -- /dev/sda mklabel gpt
 	parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 50M
 	parted -s --align optimal -- /dev/sda set 1 boot on
@@ -47,7 +36,7 @@ uefi_partitioning() {
 	mount /dev/sda3 /mnt/home
 }
 
-bios_partitioning() {
+bios_partitioning () {
 	parted -s --align optimal -- /dev/sda mklabel msdos
 	parted -s --align optimal -- /dev/sda mkpart primary ext3 1M 10G
 	parted -s --align optimal -- /dev/sda name 1 root
@@ -62,13 +51,13 @@ bios_partitioning() {
 	mount /dev/sda2 /mnt/home
 }
 
-base_system() {
+base_system () {
 	curl "https://www.archlinux.org/mirrorlist/?country=BR&protocol=http&ip_version=4" | sed 's/#Server/Server/g' > /etc/pacman.d/mirrorlist
 	pacstrap /mnt base base-devel bash-completion
 	genfstab -U -p /mnt >> /mnt/etc/fstab
 }
 
-local_information() {
+local_information () {
 	arch-chroot /mnt sed -i "s/#pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/" /etc/locale.gen
 	# arch-chroot /mnt echo "pt_BR.UTF-8 UTF-8" > /mnt/etc/locale.gen
 	arch-chroot /mnt locale-gen
@@ -87,12 +76,23 @@ local_information() {
 	arch-chroot /mnt mkinitcpio -p linux
 }
 
-uefi_bootloader() {
+uefi_bootloader () {
 	arch-chroot /mnt gummiboot --path=/boot install
 	arch-chroot /mnt echo -e "title		Arch Linux\nlinux		/vmlinuz-linux\ninitrd		/initramfs-linux.img\noptions		root=/dev/sda2 rw quiet splash elevator=noop" > /mnt/boot/loader/entries/arch.conf
 }
 
-bios_bootloader() {
+bios_bootloader () {
 	arch-chroot /mnt grub-install --target=i386-pc --recheck /dev/sda
 	arch-chroot /mnt grub-mkconfig -o /mnt/boot/grub/grub.cfg
 }
+
+echo "Choose your firmware type [UEFI/BIOS]:"
+read bootloader
+shopt -s nocasematch
+if [ $bootloader =~ "uefi" ]; then
+	uefi
+elif [ $bootloader =~ "bios" ]; then
+	bios
+else
+	echo "Invalid option!"
+fi

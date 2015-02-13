@@ -89,10 +89,11 @@ bios_bootloader () {
 echo "Choose your firmware type [UEFI/BIOS]:"
 read bootloader
 shopt -s nocasematch
-if [ $bootloader =~ "uefi" ]; then
+
+if [ $bootloader == "uefi" ]; then
 	uefi
-elif [ $bootloader =~ "bios" ]; then
+elif [ $bootloader == "bios" ]; then
 	bios
 else
 	echo "Invalid option!"
-fi
+fi;

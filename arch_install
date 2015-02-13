@@ -1,56 +1,97 @@
 #!/bin/bash
 
-# partition the disk
-parted -s --align optimal -- /dev/sda mklabel gpt
-parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 50M
-parted -s --align optimal -- /dev/sda set 1 boot on
-parted -s --align optimal -- /dev/sda mkpart primary ext3 50M 10G
-parted -s --align optimal -- /dev/sda name 2 root
-parted -s --align optimal -- /dev/sda mkpart primary ext3 10G 100%
-parted -s --align optimal -- /dev/sda name 3 home
+echo "Choose your firmware type [UEFI/BIOS]:"
+read bootloader
+shopt -s nocasematch
+if [ $bootloader =~ "uefi" ]; then
+	uefi()
+elif [ $bootloader =~ "bios" ]; then
+	bios()
+else
+	echo "Invalid option!"
+fi
 
-# create filesystems
-mkfs.vfat -F32 /dev/sda1
-mkfs.ext4 /dev/sda2
-mkfs.ext4 /dev/sda3
+uefi() {
+	uefi_partitioning
+	base_system
+	arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr gummiboot
+	local_information
+	uefi_bootloader
+}
 
-# mount partitions
-mount /dev/sda2 /mnt
-mkdir -p /mnt/boot
-mount /dev/sda1 /mnt/boot
-mkdir -p /mnt/home
-mount /dev/sda3 /mnt/home
+bios() {
+	bios_partitioning
+	base_system
+	arch-chroot /mnt pacman -S --noconfirm grub
+	local_information
+	bios_bootloader
+}
 
-# select mirror
-curl "https://www.archlinux.org/mirrorlist/?country=BR&protocol=http&ip_version=4" | sed 's/#Server/Server/g' > /etc/pacman.d/mirrorlist
+uefi_partitioning() {
+	parted -s --align optimal -- /dev/sda mklabel gpt
+	parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 50M
+	parted -s --align optimal -- /dev/sda set 1 boot on
+	parted -s --align optimal -- /dev/sda mkpart primary ext3 50M 10G
+	parted -s --align optimal -- /dev/sda name 2 root
+	parted -s --align optimal -- /dev/sda mkpart primary ext3 10G 100%
+	parted -s --align optimal -- /dev/sda name 3 home
 
-# install base system
-pacstrap /mnt base base-devel
+	mkfs.vfat -F32 /dev/sda1
+	mkfs.ext4 /dev/sda2
+	mkfs.ext4 /dev/sda3
 
-# generate fstab
-genfstab -U -p /mnt >> /mnt/etc/fstab
+	mount /dev/sda2 /mnt
+	mkdir -p /mnt/boot
+	mount /dev/sda1 /mnt/boot
+	mkdir -p /mnt/home
+	mount /dev/sda3 /mnt/home
+}
 
-# install packages
-arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr grub bash-completion
+bios_partitioning() {
+	parted -s --align optimal -- /dev/sda mklabel msdos
+	parted -s --align optimal -- /dev/sda mkpart primary ext3 1M 10G
+	parted -s --align optimal -- /dev/sda name 1 root
+	parted -s --align optimal -- /dev/sda mkpart primary ext3 10G 100%
+	parted -s --align optimal -- /dev/sda name 2 home
 
-# set up locale
-arch-chroot /mnt echo "pt_BR.UTF-8 UTF-8" > /mnt/etc/locale.gen
-arch-chroot /mnt locale-gen
-arch-chroot /mnt echo "pt_BR.UTF-8" > /mnt/etc/locale.conf
-# arch-chroot /mnt export LANG=pt_BR.UTF-8
+	mkfs.ext4 /dev/sda1
+	mkfs.ext4 /dev/sda2
 
-# set up time zone and clock
-arch-chroot /mnt ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
-arch-chroot /mnt hwclock --systohc --utc
+	mount /dev/sda1 /mnt
+	mkdir -p /mnt/home
+	mount /dev/sda2 /mnt/home
+}
 
-# set up hostname and users
-arch-chroot /mnt echo "Turing" > /mnt/etc/hostname
-arch-chroot /mnt passwd
-arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash stenny
-arch-chroot /mnt passwd stenny
-arch-chroot /mnt sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
+base_system() {
+	curl "https://www.archlinux.org/mirrorlist/?country=BR&protocol=http&ip_version=4" | sed 's/#Server/Server/g' > /etc/pacman.d/mirrorlist
+	pacstrap /mnt base base-devel bash-completion
+	genfstab -U -p /mnt >> /mnt/etc/fstab
+}
 
-# kernel and bootloader
-arch-chroot /mnt mkinitcpio -p linux
-arch-chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot --bootloader-id=Arch --recheck
-arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
+local_information() {
+	arch-chroot /mnt echo "pt_BR.UTF-8 UTF-8" > /mnt/etc/locale.gen
+	arch-chroot /mnt locale-gen
+	arch-chroot /mnt echo "pt_BR.UTF-8" > /mnt/etc/locale.conf
+	# arch-chroot /mnt export LANG=pt_BR.UTF-8
+
+	arch-chroot /mnt ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
+	arch-chroot /mnt hwclock --systohc --utc
+
+	arch-chroot /mnt echo "Turing" > /mnt/etc/hostname
+	arch-chroot /mnt passwd
+	arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash stenny
+	arch-chroot /mnt passwd stenny
+	arch-chroot /mnt sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
+
+	arch-chroot /mnt mkinitcpio -p linux
+}
+
+uefi_bootloader() {
+	arch-chroot /mnt gummiboot --path=/boot install
+	arch-chroot /mnt echo -e "title		Arch Linux\nlinux		/vmlinuz-linux\ninitrd		/initramfs-linux.img\noptions		root=/dev/sda2 rw quiet splash elevator=noop" > /mnt/boot/loader/entries/arch.conf
+}
+
+bios_bootloader() {
+	arch-chroot /mnt grub-install --target=i386-pc --recheck /dev/sda
+	arch-chroot /mnt grub-mkconfig -o /mnt/boot/grub/grub.cfg
+}

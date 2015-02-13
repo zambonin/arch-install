@@ -69,10 +69,11 @@ base_system() {
 }
 
 local_information() {
-	arch-chroot /mnt echo "pt_BR.UTF-8 UTF-8" > /mnt/etc/locale.gen
+	arch-chroot /mnt sed -i "s/#pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/" /etc/locale.gen
+	# arch-chroot /mnt echo "pt_BR.UTF-8 UTF-8" > /mnt/etc/locale.gen
 	arch-chroot /mnt locale-gen
-	arch-chroot /mnt echo "pt_BR.UTF-8" > /mnt/etc/locale.conf
-	# arch-chroot /mnt export LANG=pt_BR.UTF-8
+	arch-chroot /mnt echo "LANG=pt_BR.UTF-8" > /mnt/etc/locale.conf
+	arch-chroot /mnt -c "export LANG=pt_BR.UTF-8"
 
 	arch-chroot /mnt ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
 	arch-chroot /mnt hwclock --systohc --utc

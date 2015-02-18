@@ -1,30 +1,21 @@
 #!/bin/bash
 
-uefi () {
-	uefi_partitioning
-	base_system
-	arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr gummiboot
-	local_information
-	uefi_bootloader
-}
+echo "This machine's name:"
+read localhost
+echo "Your username of choice:"
+read username
 
-bios () {
-	bios_partitioning
-	base_system
-	arch-chroot /mnt pacman -S --noconfirm grub
-	local_information
-	bios_bootloader
-}
-
-uefi_partitioning () {
+# UEFI/GPT partition scheme
+uefi_partitioning() {
 	parted -s --align optimal -- /dev/sda mklabel gpt
+	# separate EFI System Partition mounted as /boot. Won't need more than a few MiBs
 	parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 50M
 	parted -s --align optimal -- /dev/sda set 1 boot on
+	# 10GB root partition is more than enough, rest goes to /home data
 	parted -s --align optimal -- /dev/sda mkpart primary ext3 50M 10G
-	parted -s --align optimal -- /dev/sda name 2 root
 	parted -s --align optimal -- /dev/sda mkpart primary ext3 10G 100%
-	parted -s --align optimal -- /dev/sda name 3 home
 
+	# -sX flags won't work when mounting the ESP
 	mkfs.vfat -F32 /dev/sda1
 	mkfs.ext4 /dev/sda2
 	mkfs.ext4 /dev/sda3
@@ -36,55 +27,89 @@ uefi_partitioning () {
 	mount /dev/sda3 /mnt/home
 }
 
-bios_partitioning () {
+# BIOS/MBR partition scheme
+bios_partitioning() {
 	parted -s --align optimal -- /dev/sda mklabel msdos
+	# 1MiB left alone at the start of the disk as MBR space
 	parted -s --align optimal -- /dev/sda mkpart primary ext3 1M 10G
 	parted -s --align optimal -- /dev/sda mkpart primary ext3 10G 100%
 	
 	mkfs.ext4 /dev/sda1
 	mkfs.ext4 /dev/sda2
-
 	mount /dev/sda1 /mnt
 	mkdir -p /mnt/home
 	mount /dev/sda2 /mnt/home
 }
 
-base_system () {
+base_system() {
+	# change BR to your country of preference, as long as it has at least one Arch mirror
 	curl "https://www.archlinux.org/mirrorlist/?country=BR&protocol=http&ip_version=4" | sed 's/#Server/Server/g' > /etc/pacman.d/mirrorlist
+	# these two make this a metascript
 	pacstrap /mnt base base-devel bash-completion
 	genfstab -U -p /mnt >> /mnt/etc/fstab
 }
 
-local_information () {
+local_information() {
+	# Brazilian Portuguese as language of choice
 	arch-chroot /mnt sed -i "s/#pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/" /etc/locale.gen
 	arch-chroot /mnt locale-gen
 	arch-chroot /mnt echo "LANG=pt_BR.UTF-8" > /mnt/etc/locale.conf
+	# needed to use the -c flag, else the arch-chroot wouldn't figure out "export"
 	arch-chroot /mnt /bin/bash -c "export LANG=pt_BR.UTF-8"
 
 	arch-chroot /mnt ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
+	# localtime can go to hell. http://www.cl.cam.ac.uk/~mgk25/mswish/ut-rtc.html
 	arch-chroot /mnt hwclock --systohc --utc
 
-	arch-chroot /mnt echo "Turing" > /mnt/etc/hostname
+	# let's not hardcode too much stuff, shall we
+	arch-chroot /mnt echo ${localhost} > /mnt/etc/hostname
 	arch-chroot /mnt passwd
-	arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash stenny
-	arch-chroot /mnt passwd stenny
+	arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash ${username}
+	arch-chroot /mnt passwd ${username}
+	# We trust you have received the usual lecture from the local System Administrator.
 	arch-chroot /mnt sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
 
+	# 500,000 commits and who knows how many installations
 	arch-chroot /mnt mkinitcpio -p linux
 }
 
-uefi_bootloader () {
+uefi_bootloader() {
+	# Gummiboot proved the most reliable on test installs, and it also reports the firmware boot time (!)
 	arch-chroot /mnt gummiboot --path=/boot install
-	arch-chroot /mnt echo -e "title		Arch Linux\nlinux		/vmlinuz-linux\ninitrd		/initramfs-linux.img\noptions		root=/dev/sda2 rw quiet splash elevator=noop" > /mnt/boot/loader/entries/arch.conf
+	# "Here documents", Bashisms Series #17
+	arch-chroot /mnt tee /mnt/boot/loader/entries/arch.conf <<-EOF
+		title		Arch Linux
+		linux		/vmlinuz-linux
+		initrd		/initramfs-linux.img
+		options		root=/dev/sda2 rw quiet splash elevator=noop
+	EOF
 }
 
-bios_bootloader () {
+bios_bootloader() {
+	# GRUB always ends up being a life-saver and it is very trustful in legacy systems
 	arch-chroot /mnt grub-install --target=i386-pc --recheck /dev/sda
 	arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
 }
 
+uefi() {
+	uefi_partitioning
+	base_system
+	arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr gummiboot
+	local_information
+	uefi_bootloader
+}
+
+bios() {
+	bios_partitioning
+	base_system
+	arch-chroot /mnt pacman -S --noconfirm grub
+	local_information
+	bios_bootloader
+}
+
 echo "Choose your firmware type [UEFI/BIOS]:"
 read bootloader
+# bootloader.equalsIgnoreCase();
 shopt -s nocasematch
 
 if [ $bootloader == "uefi" ]; then
@@ -92,5 +117,5 @@ if [ $bootloader == "uefi" ]; then
 elif [ $bootloader == "bios" ]; then
 	bios
 else
-	echo "Invalid option!"
+	echo "Don't break my script!"
 fi;

@@ -8,14 +8,11 @@ read username
 # UEFI/GPT partition scheme
 uefi_partitioning() {
 	parted -s --align optimal -- /dev/sda mklabel gpt
-	# separate EFI System Partition mounted as /boot. Won't need more than a few MiBs
 	parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 50M
 	parted -s --align optimal -- /dev/sda set 1 boot on
-	# 10GB root partition is more than enough, rest goes to /home data
 	parted -s --align optimal -- /dev/sda mkpart primary ext3 50M 10G
 	parted -s --align optimal -- /dev/sda mkpart primary ext3 10G 100%
 
-	# -sX flags won't work when mounting the ESP
 	mkfs.vfat -F32 /dev/sda1
 	mkfs.ext4 /dev/sda2
 	mkfs.ext4 /dev/sda3
@@ -30,7 +27,6 @@ uefi_partitioning() {
 # BIOS/MBR partition scheme
 bios_partitioning() {
 	parted -s --align optimal -- /dev/sda mklabel msdos
-	# 1MiB left alone at the start of the disk as MBR space
 	parted -s --align optimal -- /dev/sda mkpart primary ext3 1M 10G
 	parted -s --align optimal -- /dev/sda mkpart primary ext3 10G 100%
 	
@@ -44,7 +40,6 @@ bios_partitioning() {
 base_system() {
 	# change BR to your country of preference, as long as it has at least one Arch mirror
 	curl "https://www.archlinux.org/mirrorlist/?country=BR&protocol=http&ip_version=4" | sed 's/#Server/Server/g' > /etc/pacman.d/mirrorlist
-	# these two make this a metascript
 	pacstrap /mnt base base-devel bash-completion
 	genfstab -U -p /mnt >> /mnt/etc/fstab
 }
@@ -61,27 +56,23 @@ local_information() {
 	# localtime can go to hell. http://www.cl.cam.ac.uk/~mgk25/mswish/ut-rtc.html
 	arch-chroot /mnt hwclock --systohc --utc
 
-	# let's not hardcode too much stuff, shall we
 	arch-chroot /mnt echo ${localhost} > /mnt/etc/hostname
 	arch-chroot /mnt passwd
 	arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash ${username}
 	arch-chroot /mnt passwd ${username}
-	# We trust you have received the usual lecture from the local System Administrator.
 	arch-chroot /mnt sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
 
-	# 500,000 commits and who knows how many installations
 	arch-chroot /mnt mkinitcpio -p linux
 }
 
 uefi_bootloader() {
 	# Gummiboot proved the most reliable on test installs, and it also reports the firmware boot time (!)
 	arch-chroot /mnt gummiboot --path=/boot install
-	# "Here documents", Bashisms Series #17
-	arch-chroot /mnt tee /mnt/boot/loader/entries/arch.conf <<-EOF
+	arch-chroot /mnt cat > /mnt/boot/loader/entries/arch.conf << EOF
 		title		Arch Linux
 		linux		/vmlinuz-linux
 		initrd		/initramfs-linux.img
-		options		root=/dev/sda2 rw quiet splash elevator=noop
+		options		root=/dev/sda2 rw quiet splash
 	EOF
 }
 
@@ -109,13 +100,9 @@ bios() {
 
 echo "Choose your firmware type [UEFI/BIOS]:"
 read bootloader
-# bootloader.equalsIgnoreCase();
-shopt -s nocasematch
 
-if [ $bootloader == "uefi" ]; then
+if [ $bootloader == "UEFI" ]; then
 	uefi
-elif [ $bootloader == "bios" ]; then
+elif [ $bootloader == "BIOS" ]; then
 	bios
-else
-	echo "Don't break my script!"
 fi;

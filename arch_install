@@ -68,12 +68,12 @@ local_information() {
 uefi_bootloader() {
 	# Gummiboot proved the most reliable on test installs, and it also reports the firmware boot time (!)
 	arch-chroot /mnt gummiboot --path=/boot install
-	arch-chroot /mnt cat > /mnt/boot/loader/entries/arch.conf << EOF
+	arch-chroot /mnt cat <<EOF > /mnt/boot/loader/entries/arch.conf
 		title		Arch Linux
 		linux		/vmlinuz-linux
 		initrd		/initramfs-linux.img
 		options		root=/dev/sda2 rw quiet splash
-	EOF
+		EOF
 }
 
 bios_bootloader() {

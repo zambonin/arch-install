@@ -40,12 +40,11 @@ bios_partitioning() {
 base_system() {
 	# change BR to your country of preference, as long as it has at least one Arch mirror
 	curl "https://www.archlinux.org/mirrorlist/?country=BR&protocol=http&ip_version=4" | sed 's/#Server/Server/g' > /etc/pacman.d/mirrorlist
-	pacstrap /mnt base base-devel bash-completion
+	pacstrap /mnt base base-devel bash-completion expac pkgfile
 	genfstab -U -p /mnt >> /mnt/etc/fstab
 }
 
 local_information() {
-	# Brazilian Portuguese as language of choice
 	arch-chroot /mnt sed -i "s/#pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/" /etc/locale.gen
 	arch-chroot /mnt locale-gen
 	arch-chroot /mnt echo "LANG=pt_BR.UTF-8" > /mnt/etc/locale.conf

@@ -12,93 +12,94 @@ echo "Choose your firmware type [UEFI/BIOS]:"
 read bootloader
 
 uefi_partitioning() {
-	parted -s --align optimal -- /dev/sda mklabel gpt
-	parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 50M
-	parted -s --align optimal -- /dev/sda set 1 boot on
-	parted -s --align optimal -- /dev/sda mkpart primary ext3 50M ${rootsize^^}
-	parted -s --align optimal -- /dev/sda mkpart primary ext3 ${rootsize^^} 100%
+    parted -s --align optimal -- /dev/sda mklabel gpt
+    parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 50M
+    parted -s --align optimal -- /dev/sda set 1 boot on
+    parted -s --align optimal -- /dev/sda mkpart primary ext3 50M ${rootsize^^}
+    parted -s --align optimal -- /dev/sda mkpart primary ext3 ${rootsize^^} 100%
 
-	mkfs.vfat -F32 /dev/sda1
-	mkfs.ext4 /dev/sda2
-	mkfs.ext4 /dev/sda3
+    mkfs.vfat -F32 /dev/sda1
+    mkfs.ext4 /dev/sda2
+    mkfs.ext4 /dev/sda3
 
-	mount /dev/sda2 /mnt
-	mkdir -p /mnt/boot
-	mount /dev/sda1 /mnt/boot
-	mkdir -p /mnt/home
-	mount /dev/sda3 /mnt/home
+    mount /dev/sda2 /mnt
+    mkdir -p /mnt/boot
+    mount /dev/sda1 /mnt/boot
+    mkdir -p /mnt/home
+    mount /dev/sda3 /mnt/home
 }
 
 bios_partitioning() {
-	parted -s --align optimal -- /dev/sda mklabel msdos
-	parted -s --align optimal -- /dev/sda mkpart primary ext3 1M ${rootsize^^}
-	parted -s --align optimal -- /dev/sda mkpart primary ext3 ${rootsize^^} 100%
-	
-	mkfs.ext4 /dev/sda1
-	mkfs.ext4 /dev/sda2
-	mount /dev/sda1 /mnt
-	mkdir -p /mnt/home
-	mount /dev/sda2 /mnt/home
+    parted -s --align optimal -- /dev/sda mklabel msdos
+    parted -s --align optimal -- /dev/sda mkpart primary ext3 1M ${rootsize^^}
+    parted -s --align optimal -- /dev/sda mkpart primary ext3 ${rootsize^^} 100%
+    
+    mkfs.ext4 /dev/sda1
+    mkfs.ext4 /dev/sda2
+    mount /dev/sda1 /mnt
+    mkdir -p /mnt/home
+    mount /dev/sda2 /mnt/home
 }
 
 base_system() {
-	sed 's/#Server/Server/' <(curl -sL "archlinux.org/mirrorlist/?country=${country^^}&use_mirror_status=on") > /etc/pacman.d/mirrorlist
-	pacstrap /mnt base base-devel bash-completion expac pkgfile
-	genfstab -U -p /mnt >> /mnt/etc/fstab
+    link="archlinux.org/mirrorlist/?country=${country^^}&use_mirror_status=on"
+    sed 's/#Server/Server/' <(curl -sL ${link}) > /etc/pacman.d/mirrorlist
+    pacstrap /mnt base base-devel bash-completion expac pkgfile
+    genfstab -U -p /mnt >> /mnt/etc/fstab
 }
 
 local_information() {
-	arch-chroot /mnt sed "s/#pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/" /etc/locale.gen
-	arch-chroot /mnt locale-gen
-	arch-chroot /mnt echo "LANG=pt_BR.UTF-8" > /mnt/etc/locale.conf
-	# needed to use the -c flag because arch-chroot wouldn't figure out "export"
-	arch-chroot /mnt /bin/bash -c "export LANG=pt_BR.UTF-8"
+    arch-chroot /mnt sed "s/#pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/" /etc/locale.gen
+    arch-chroot /mnt locale-gen
+    arch-chroot /mnt echo "LANG=pt_BR.UTF-8" > /mnt/etc/locale.conf
+    # needed to use the -c flag because arch-chroot wouldn't figure out "export"
+    arch-chroot /mnt /bin/bash -c "export LANG=pt_BR.UTF-8"
 
-	arch-chroot /mnt ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
-	arch-chroot /mnt hwclock --systohc --utc
+    arch-chroot /mnt ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
+    arch-chroot /mnt hwclock --systohc --utc
 
-	arch-chroot /mnt echo ${localhost} > /mnt/etc/hostname
-	arch-chroot /mnt passwd
-	arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash ${username}
-	arch-chroot /mnt passwd ${username}
-	arch-chroot /mnt sed "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
+    arch-chroot /mnt echo ${localhost} > /mnt/etc/hostname
+    arch-chroot /mnt passwd
+    arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash ${username}
+    arch-chroot /mnt passwd ${username}
+    arch-chroot /mnt sed "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
 
-	arch-chroot /mnt mkinitcpio -p linux
+    arch-chroot /mnt mkinitcpio -p linux
 }
 
 uefi_bootloader() {
-	arch-chroot /mnt gummiboot --path=/boot install
-	arch-chroot /mnt cat > /mnt/boot/loader/entries/arch.conf <<- EOF
-		title		Arch Linux
-		linux		/vmlinuz-linux
-		initrd		/initramfs-linux.img
-		options		root=/dev/sda2 rw quiet splash
-		EOF
+    arch-chroot /mnt gummiboot --path=/boot install
+    arch-chroot /mnt cat > /mnt/boot/loader/entries/arch.conf <<- EOF
+        title       Arch Linux
+        linux       /vmlinuz-linux
+        initrd      /initramfs-linux.img
+        options     root=/dev/sda2 rw quiet splash
+        EOF
 }
 
 bios_bootloader() {
-	arch-chroot /mnt grub-install --target=i386-pc --recheck /dev/sda
-	arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
+    arch-chroot /mnt grub-install --target=i386-pc --recheck /dev/sda
+    arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
 }
 
 uefi() {
-	uefi_partitioning
-	base_system
-	arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr gummiboot
-	local_information
-	uefi_bootloader
+    uefi_partitioning
+    base_system
+    arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr gummiboot
+    local_information
+    uefi_bootloader
 }
 
 bios() {
-	bios_partitioning
-	base_system
-	arch-chroot /mnt pacman -S --noconfirm grub
-	local_information
-	bios_bootloader
+    bios_partitioning
+    base_system
+    arch-chroot /mnt pacman -S --noconfirm grub
+    local_information
+    bios_bootloader
 }
 
 if [ ${bootloader^^} == "UEFI" ]; then
-	uefi
+    uefi
 elif [ ${bootloader^^} == "BIOS" ]; then
-	bios
+    bios
 fi;

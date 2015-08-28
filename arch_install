@@ -42,8 +42,7 @@ bios_partitioning() {
 }
 
 base_system() {
-	sed 's/#Server/Server/' <(curl -sL "archlinux.org/mirrorlist/?country=\
-		${country^^}&use_mirror_status=on") > /etc/pacman.d/mirrorlist
+	sed 's/#Server/Server/' <(curl -sL "archlinux.org/mirrorlist/?country=${country^^}&use_mirror_status=on") > /etc/pacman.d/mirrorlist
 	pacstrap /mnt base base-devel bash-completion expac pkgfile
 	genfstab -U -p /mnt >> /mnt/etc/fstab
 }

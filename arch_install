@@ -4,14 +4,18 @@ echo "This machine's name:"
 read localhost
 echo "Your username of choice:"
 read username
+echo "Choose your firmware type [UEFI/BIOS]:"
+read bootloader
+echo "Set the root partition size (i.e. 5G):"
+read rootsize
 
 # UEFI/GPT partition scheme
 uefi_partitioning() {
 	parted -s --align optimal -- /dev/sda mklabel gpt
 	parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 50M
 	parted -s --align optimal -- /dev/sda set 1 boot on
-	parted -s --align optimal -- /dev/sda mkpart primary ext3 50M 10G
-	parted -s --align optimal -- /dev/sda mkpart primary ext3 10G 100%
+	parted -s --align optimal -- /dev/sda mkpart primary ext3 50M ${rootsize}
+	parted -s --align optimal -- /dev/sda mkpart primary ext3 ${rootsize} 100%
 
 	mkfs.vfat -F32 /dev/sda1
 	mkfs.ext4 /dev/sda2
@@ -27,8 +31,8 @@ uefi_partitioning() {
 # BIOS/MBR partition scheme
 bios_partitioning() {
 	parted -s --align optimal -- /dev/sda mklabel msdos
-	parted -s --align optimal -- /dev/sda mkpart primary ext3 1M 10G
-	parted -s --align optimal -- /dev/sda mkpart primary ext3 10G 100%
+	parted -s --align optimal -- /dev/sda mkpart primary ext3 1M ${rootsize}
+	parted -s --align optimal -- /dev/sda mkpart primary ext3 ${rootsize} 100%
 	
 	mkfs.ext4 /dev/sda1
 	mkfs.ext4 /dev/sda2
@@ -67,7 +71,7 @@ local_information() {
 uefi_bootloader() {
 	# Gummiboot proved the most reliable on test installs, and it also reports the firmware boot time (!)
 	arch-chroot /mnt gummiboot --path=/boot install
-	arch-chroot /mnt cat <<EOF > /mnt/boot/loader/entries/arch.conf
+	arch-chroot /mnt cat > /mnt/boot/loader/entries/arch.conf <<- EOF
 		title		Arch Linux
 		linux		/vmlinuz-linux
 		initrd		/initramfs-linux.img
@@ -96,9 +100,6 @@ bios() {
 	local_information
 	bios_bootloader
 }
-
-echo "Choose your firmware type [UEFI/BIOS]:"
-read bootloader
 
 if [ $bootloader == "UEFI" ]; then
 	uefi

@@ -52,7 +52,6 @@ local_information() {
     arch-chroot /mnt sed -i "s/#pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/" /etc/locale.gen
     arch-chroot /mnt locale-gen
     arch-chroot /mnt echo "LANG=pt_BR.UTF-8" > /mnt/etc/locale.conf
-    # needed to use the -c flag because arch-chroot wouldn't figure out "export"
     arch-chroot /mnt /bin/bash -c "export LANG=pt_BR.UTF-8"
 
     arch-chroot /mnt ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime

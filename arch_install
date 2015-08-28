@@ -42,14 +42,14 @@ bios_partitioning() {
 }
 
 base_system() {
-	curl -sL "archlinux.org/mirrorlist/?country=${country^^}&use_mirror_status=on" > mirrors
-	sed -i 's/#Server/Server/' mirrors > /etc/pacman.d/mirrorlist
+	sed 's/#Server/Server/' <(curl -sL "archlinux.org/mirrorlist/?country=\
+		${country^^}&use_mirror_status=on") > /etc/pacman.d/mirrorlist
 	pacstrap /mnt base base-devel bash-completion expac pkgfile
 	genfstab -U -p /mnt >> /mnt/etc/fstab
 }
 
 local_information() {
-	arch-chroot /mnt sed -i "s/#pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/" /etc/locale.gen
+	arch-chroot /mnt sed "s/#pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/" /etc/locale.gen
 	arch-chroot /mnt locale-gen
 	arch-chroot /mnt echo "LANG=pt_BR.UTF-8" > /mnt/etc/locale.conf
 	# needed to use the -c flag because arch-chroot wouldn't figure out "export"
@@ -62,7 +62,7 @@ local_information() {
 	arch-chroot /mnt passwd
 	arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash ${username}
 	arch-chroot /mnt passwd ${username}
-	arch-chroot /mnt sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
+	arch-chroot /mnt sed "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
 
 	arch-chroot /mnt mkinitcpio -p linux
 }

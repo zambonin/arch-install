@@ -4,12 +4,13 @@ echo "This machine's name:"
 read localhost
 echo "Your username of choice:"
 read username
-echo "Choose your firmware type [UEFI/BIOS]:"
-read bootloader
 echo "Set the root partition size (i.e. 5G):"
 read rootsize
+echo "Your country's calling code for pacman mirrors:"
+read country
+echo "Choose your firmware type [UEFI/BIOS]:"
+read bootloader
 
-# UEFI/GPT partition scheme
 uefi_partitioning() {
 	parted -s --align optimal -- /dev/sda mklabel gpt
 	parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 50M
@@ -28,7 +29,6 @@ uefi_partitioning() {
 	mount /dev/sda3 /mnt/home
 }
 
-# BIOS/MBR partition scheme
 bios_partitioning() {
 	parted -s --align optimal -- /dev/sda mklabel msdos
 	parted -s --align optimal -- /dev/sda mkpart primary ext3 1M ${rootsize}
@@ -42,8 +42,8 @@ bios_partitioning() {
 }
 
 base_system() {
-	# change BR to your country of preference, as long as it has at least one Arch mirror
-	curl "https://www.archlinux.org/mirrorlist/?country=BR&protocol=http&ip_version=4" | sed 's/#Server/Server/g' > /etc/pacman.d/mirrorlist
+	curl -sL "archlinux.org/mirrorlist/?country=${country^^}&use_mirror_status=on" > mirrors
+	sed -i 's/#Server/Server/' mirrors > /etc/pacman.d/mirrorlist
 	pacstrap /mnt base base-devel bash-completion expac pkgfile
 	genfstab -U -p /mnt >> /mnt/etc/fstab
 }
@@ -52,11 +52,10 @@ local_information() {
 	arch-chroot /mnt sed -i "s/#pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/" /etc/locale.gen
 	arch-chroot /mnt locale-gen
 	arch-chroot /mnt echo "LANG=pt_BR.UTF-8" > /mnt/etc/locale.conf
-	# needed to use the -c flag, else the arch-chroot wouldn't figure out "export"
+	# needed to use the -c flag because arch-chroot wouldn't figure out "export"
 	arch-chroot /mnt /bin/bash -c "export LANG=pt_BR.UTF-8"
 
 	arch-chroot /mnt ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
-	# localtime can go to hell. http://www.cl.cam.ac.uk/~mgk25/mswish/ut-rtc.html
 	arch-chroot /mnt hwclock --systohc --utc
 
 	arch-chroot /mnt echo ${localhost} > /mnt/etc/hostname
@@ -69,7 +68,6 @@ local_information() {
 }
 
 uefi_bootloader() {
-	# Gummiboot proved the most reliable on test installs, and it also reports the firmware boot time (!)
 	arch-chroot /mnt gummiboot --path=/boot install
 	arch-chroot /mnt cat > /mnt/boot/loader/entries/arch.conf <<- EOF
 		title		Arch Linux
@@ -80,7 +78,6 @@ uefi_bootloader() {
 }
 
 bios_bootloader() {
-	# GRUB always ends up being a life-saver and it is very trustful in legacy systems
 	arch-chroot /mnt grub-install --target=i386-pc --recheck /dev/sda
 	arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
 }
@@ -101,8 +98,8 @@ bios() {
 	bios_bootloader
 }
 
-if [ $bootloader == "UEFI" ]; then
+if [ ${bootloader^^} == "UEFI" ]; then
 	uefi
-elif [ $bootloader == "BIOS" ]; then
+elif [ ${bootloader^^} == "BIOS" ]; then
 	bios
 fi;

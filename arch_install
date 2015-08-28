@@ -15,8 +15,8 @@ uefi_partitioning() {
 	parted -s --align optimal -- /dev/sda mklabel gpt
 	parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 50M
 	parted -s --align optimal -- /dev/sda set 1 boot on
-	parted -s --align optimal -- /dev/sda mkpart primary ext3 50M ${rootsize}
-	parted -s --align optimal -- /dev/sda mkpart primary ext3 ${rootsize} 100%
+	parted -s --align optimal -- /dev/sda mkpart primary ext3 50M ${rootsize^^}
+	parted -s --align optimal -- /dev/sda mkpart primary ext3 ${rootsize^^} 100%
 
 	mkfs.vfat -F32 /dev/sda1
 	mkfs.ext4 /dev/sda2
@@ -31,8 +31,8 @@ uefi_partitioning() {
 
 bios_partitioning() {
 	parted -s --align optimal -- /dev/sda mklabel msdos
-	parted -s --align optimal -- /dev/sda mkpart primary ext3 1M ${rootsize}
-	parted -s --align optimal -- /dev/sda mkpart primary ext3 ${rootsize} 100%
+	parted -s --align optimal -- /dev/sda mkpart primary ext3 1M ${rootsize^^}
+	parted -s --align optimal -- /dev/sda mkpart primary ext3 ${rootsize^^} 100%
 	
 	mkfs.ext4 /dev/sda1
 	mkfs.ext4 /dev/sda2

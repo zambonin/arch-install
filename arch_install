@@ -6,7 +6,7 @@ echo "Your username of choice:"
 read username
 echo "Set the root partition size (i.e. 5G):"
 read rootsize
-echo "Your country's calling code for pacman mirrors:"
+echo "Your country's calling code for pacman mirrors (i.e. BR):"
 read country
 echo "Choose your firmware type [UEFI/BIOS]:"
 read bootloader
@@ -58,8 +58,10 @@ local_information() {
     arch-chroot /mnt hwclock --systohc --utc
 
     arch-chroot /mnt echo ${localhost} > /mnt/etc/hostname
+    echo "Password for superuser:"
     arch-chroot /mnt passwd
     arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash ${username}
+    echo "Password for ${username}:"
     arch-chroot /mnt passwd ${username}
     arch-chroot /mnt sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
 

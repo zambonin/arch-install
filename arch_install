@@ -60,9 +60,9 @@ local_information() {
     arch-chroot /mnt echo ${localhost} > /mnt/etc/hostname
     echo "Password for superuser:"
     arch-chroot /mnt passwd
-    arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash ${username}
-    echo "Password for ${username}:"
-    arch-chroot /mnt passwd ${username}
+    arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash ${username,,}
+    echo "Password for ${username,,}:"
+    arch-chroot /mnt passwd ${username,,}
     arch-chroot /mnt sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
 
     arch-chroot /mnt mkinitcpio -p linux

@@ -69,7 +69,7 @@ local_information() {
 }
 
 uefi_bootloader() {
-    arch-chroot /mnt gummiboot --path=/boot install
+    arch-chroot /mnt bootctl install
     arch-chroot /mnt cat > /mnt/boot/loader/entries/arch.conf <<-EOF
         title       Arch Linux
         linux       /vmlinuz-linux
@@ -86,7 +86,7 @@ bios_bootloader() {
 uefi() {
     uefi_partitioning
     base_system
-    arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr gummiboot
+    arch-chroot /mnt pacman -S --noconfirm dosfstools efibootmgr
     local_information
     uefi_bootloader
 }

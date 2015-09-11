@@ -2,8 +2,8 @@ Arch Installation Script
 =======
 
 ```
-# bash <(curl -sL goo.gl/FGROHc)
+root@archiso ~ # bash <(curl -sL goo.gl/FGROHc)
 ```
-* depends on wired internet connection and the process substitution is highly suggested
-* will install GRUB or Gummiboot according to your firmware choice (BIOS or UEFI, respectively)
-* contains local information such as mirrors and timezone
+* depends on wired internet connection
+* root partition size should be at least 1½ GB
+* takes, on average, three and a half minutes with good mirrors on a SSD

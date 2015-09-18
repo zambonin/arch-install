@@ -1,9 +1,9 @@
 #!/bin/bash
 
-read -p "This machine's name: " localhost
-read -p "Your username of choice: " username
-read -p "Set the root partition size (i.e. 5G): " rootsize
-read -p "Your country's calling code for pacman mirrors (i.e. BR): " country
+read -rp "This machine's name: " localhost
+read -rp "Your username of choice: " username
+read -rp "Set the root partition size (i.e. 5G): " rootsize
+read -rp "Your country's calling code for pacman mirrors (i.e. BR): " country
 
 uefi_partitioning() {
     parted -s --align optimal -- /dev/sda mklabel gpt
@@ -43,7 +43,7 @@ base_system() {
 }
 
 local_information() {
-    locale=$(cat /etc/locale.gen | grep "${country^^}.UTF-8" | sed 's/#//;1q;d' | awk '{$1=$1} {print $1}')
+    locale=$(grep "${country^^}.UTF-8" /etc/locale.gen | sed 's/#//;1q;d' | awk '{$1=$1} {print $1}')
     arch-chroot /mnt sed -i "s/\#$locale/$locale/" /etc/locale.gen
     arch-chroot /mnt locale-gen
     arch-chroot /mnt echo "LANG=$locale" > /mnt/etc/locale.conf

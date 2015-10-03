@@ -4,6 +4,9 @@ read -rp "This machine's name: " localhost
 read -rp "Your username of choice: " username
 read -rp "Set the root partition size (i.e. 5G): " rootsize
 read -rp "Your country's calling code for pacman mirrors (i.e. BR): " country
+echo "Available timezones:"
+grep ${country^^} /usr/share/zoneinfo/*.* | awk '{print $3}' | sort -u | column
+read -rp "Choose your timezone: " timezone
 
 uefi_partitioning() {
     parted -s --align optimal -- /dev/sda mklabel gpt
@@ -49,8 +52,7 @@ local_information() {
     arch-chroot /mnt echo "LANG=$locale" > /mnt/etc/locale.conf
     arch-chroot /mnt /bin/bash -c "export LANG=$locale"
 
-    # cat /usr/share/zoneinfo/*.* | grep ${country^^} | awk '{print $3}' | column
-    arch-chroot /mnt ln -s /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime
+    arch-chroot /mnt ln -s /usr/share/zoneinfo/"${timezone}" /etc/localtime
     arch-chroot /mnt hwclock --systohc --utc
 
     arch-chroot /mnt echo ${localhost} > /mnt/etc/hostname

@@ -2,18 +2,43 @@
 
 read -rp "This machine's name: " localhost
 read -rp "Your username of choice: " username
+size=$(lsblk | grep sda | awk '{print $4}')
+echo "The root partition size must not be greater than $size."
 read -rp "Set the root partition size (i.e. 5G): " rootsize
-read -rp "Your country's calling code for pacman mirrors (i.e. BR): " country
+
+cc=$(curl -sL https://www.archlinux.org/mirrorlist/ | grep "<option" | \
+     awk -F'[""]' '{print $2}' | sed '1d')
+echo "Available country codes (used for mirrors and locale):"
+echo "$cc" | column
+
+while read -rp "Your country: " country ; do
+    if grep -qx "${country^^}" <<< "$cc" ; then
+        country="${country^^}"
+        break
+    else
+        echo "Country not found! Please choose from one of the above."
+    fi
+done
+
+zone=$(grep "$country" /usr/share/zoneinfo/*.* | awk '{print $3}' | sort -u)
 echo "Available timezones:"
-grep ${country^^} /usr/share/zoneinfo/*.* | awk '{print $3}' | sort -u | column
-read -rp "Choose your timezone: " timezone
+echo "$zone" | column
+
+while read -rp "Your timezone: " timezone ; do
+    if grep -qx "$timezone" <<< "$zone" ; then
+        timezone="$timezone"
+        break
+    else
+        echo "Timezone not found! Please choose from one of the above."
+    fi
+done
 
 uefi_partitioning() {
-    parted -s --align optimal -- /dev/sda mklabel gpt
-    parted -s --align optimal -- /dev/sda mkpart ESP fat32 1M 50M
-    parted -s --align optimal -- /dev/sda set 1 boot on
-    parted -s --align optimal -- /dev/sda mkpart primary ext3 50M ${rootsize^^}
-    parted -s --align optimal -- /dev/sda mkpart primary ext3 ${rootsize^^} 100%
+    parted -s --align optimal -- /dev/sda mklabel gpt \
+        /dev/sda mkpart ESP fat32 1M 50M \
+        /dev/sda set 1 boot on \
+        /dev/sda mkpart primary ext3 50M "${rootsize^^}" \
+        /dev/sda mkpart primary ext3 "${rootsize^^}" 100%
 
     mkfs.vfat -F32 /dev/sda1
     mkfs.ext4 /dev/sda2
@@ -27,12 +52,13 @@ uefi_partitioning() {
 }
 
 bios_partitioning() {
-    parted -s --align optimal -- /dev/sda mklabel msdos
-    parted -s --align optimal -- /dev/sda mkpart primary ext3 1M ${rootsize^^}
-    parted -s --align optimal -- /dev/sda mkpart primary ext3 ${rootsize^^} 100%
+    parted -s --align optimal -- /dev/sda mklabel msdos \
+        mkpart primary ext3 1M "${rootsize^^}" \
+        mkpart primary ext3 "${rootsize^^}" 100%
 
     mkfs.ext4 /dev/sda1
     mkfs.ext4 /dev/sda2
+
     mount /dev/sda1 /mnt
     mkdir -p /mnt/home
     mount /dev/sda2 /mnt/home
@@ -40,13 +66,14 @@ bios_partitioning() {
 
 base_system() {
     link="archlinux.org/mirrorlist/?country=${country^^}&use_mirror_status=on"
-    curl -sL $link | sed 's/#Server/Server/' > /etc/pacman.d/mirrorlist
+    curl -sL "$link" | sed 's/#Server/Server/' > /etc/pacman.d/mirrorlist
     pacstrap /mnt base base-devel bash-completion expac pkgfile
     genfstab -U -p /mnt >> /mnt/etc/fstab
 }
 
 local_information() {
-    locale=$(grep "${country^^}.UTF-8" /etc/locale.gen | sed 's/#//;1q;d' | awk '{$1=$1} {print $1}')
+    locale=$(grep "${country^^}.UTF-8" /etc/locale.gen | sed 's/#//;1q;d' | \
+             awk '{$1=$1} {print $1}')
     arch-chroot /mnt sed -i "s/\#$locale/$locale/" /etc/locale.gen
     arch-chroot /mnt locale-gen
     arch-chroot /mnt echo "LANG=$locale" > /mnt/etc/locale.conf
@@ -55,14 +82,14 @@ local_information() {
     arch-chroot /mnt ln -s /usr/share/zoneinfo/"${timezone}" /etc/localtime
     arch-chroot /mnt hwclock --systohc --utc
 
-    arch-chroot /mnt echo ${localhost} > /mnt/etc/hostname
+    arch-chroot /mnt echo "${localhost}" > /mnt/etc/hostname
 
     echo "Password for superuser:"
     arch-chroot /mnt passwd
 
-    arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash ${username,,}
+    arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash "${username,,}"
     echo "Password for ${username,,}:"
-    arch-chroot /mnt passwd ${username,,}
+    arch-chroot /mnt passwd "${username,,}"
     arch-chroot /mnt sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
 
     arch-chroot /mnt mkinitcpio -p linux
@@ -99,7 +126,7 @@ bios() {
     bios_bootloader
 }
 
-if [ $(efivar -l 2>/dev/null | wc -l) -gt 0 ]; then
+if [ "$(efivar -l 2>/dev/null | wc -l)" -gt 0 ]; then
     uefi
 else
     bios

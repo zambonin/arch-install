@@ -20,25 +20,12 @@ while read -rp "Your country: " country ; do
     fi
 done
 
-zone=$(grep "$country" /usr/share/zoneinfo/*.* | awk '{print $3}' | sort -u)
-echo "Available timezones:"
-echo "$zone" | column
-
-while read -rp "Your timezone: " timezone ; do
-    if grep -qx "$timezone" <<< "$zone" ; then
-        timezone="$timezone"
-        break
-    else
-        echo "Timezone not found! Please choose from one of the above."
-    fi
-done
-
 uefi_partitioning() {
     parted -s --align optimal -- /dev/sda mklabel gpt \
-        /dev/sda mkpart ESP fat32 1M 50M \
-        /dev/sda set 1 boot on \
-        /dev/sda mkpart primary ext3 50M "${rootsize^^}" \
-        /dev/sda mkpart primary ext3 "${rootsize^^}" 100%
+        mkpart ESP fat32 1M 50M \
+        set 1 boot on \
+        mkpart primary ext3 50M "${rootsize^^}" \
+        mkpart primary ext3 "${rootsize^^}" 100%
 
     mkfs.vfat -F32 /dev/sda1
     mkfs.ext4 /dev/sda2
@@ -79,6 +66,7 @@ local_information() {
     arch-chroot /mnt echo "LANG=$locale" > /mnt/etc/locale.conf
     arch-chroot /mnt /bin/bash -c "export LANG=$locale"
 
+    timezone="$(tzselect)"
     arch-chroot /mnt ln -s /usr/share/zoneinfo/"${timezone}" /etc/localtime
     arch-chroot /mnt hwclock --systohc --utc
 

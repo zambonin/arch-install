@@ -114,8 +114,4 @@ bios() {
     bios_bootloader
 }
 
-if [ "$(efivar -l 2>/dev/null | wc -l)" -gt 0 ]; then
-    uefi
-else
-    bios
-fi
+[ "$(efivar -l 2>/dev/null | wc -l)" -gt 0 ] && uefi || bios

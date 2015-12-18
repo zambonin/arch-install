@@ -2,16 +2,16 @@
 
 read -rp "This machine's name: " localhost
 read -rp "Your username of choice: " username
-size=$(lsblk | grep sda | awk '{print $4}')
+size=$(lsblk | awk '/sda/ {print $4}')
 echo "The root partition size must not be greater than $size."
 read -rp "Set the root partition size (i.e. 5G): " rootsize
 
-cc=$(curl -sL https://www.archlinux.org/mirrorlist/ | grep "<option" | \
-     awk -F'[""]' '{print $2}' | sed '1d')
-echo "Available country codes (used for mirrors and locale):"
+cc=$(awk -F"[\"\"]" 'length($2)==2 && NR>2 {print $2}' \
+   <(curl -sL https://www.archlinux.org/mirrorlist/))
+echo "Available country codes (used for mirrors):"
 echo "$cc" | column
 
-while read -rp "Your country: " country ; do
+while read -rp "Your country (or closest location): " country ; do
     if grep -qx "${country^^}" <<< "$cc" ; then
         country="${country^^}"
         break
@@ -59,10 +59,9 @@ base_system() {
 }
 
 local_information() {
-    locale=$(grep "${country^^}.UTF-8" /etc/locale.gen | sed 's/#//;1q;d' | \
-             awk '{$1=$1} {print $1}')
-    arch-chroot /mnt sed -i "s/\#$locale/$locale/" /etc/locale.gen
+    arch-chroot /mnt nano /etc/locale.gen
     arch-chroot /mnt locale-gen
+    locale=$(awk '!/\#/ {print $1}' /mnt/etc/locale.gen)
     arch-chroot /mnt echo "LANG=$locale" > /mnt/etc/locale.conf
     arch-chroot /mnt /bin/bash -c "export LANG=$locale"
 
@@ -84,7 +83,7 @@ local_information() {
 }
 
 uefi_bootloader() {
-    id="$(ls -l /dev/disk/by-partuuid | grep sda2 | awk '{print $9}')"
+    id="$(ls -l /dev/disk/by-partuuid | awk '/sda2/ {print $9}')"
     arch-chroot /mnt bootctl install
     arch-chroot /mnt cat > /mnt/boot/loader/entries/arch.conf <<-EOF
         title       Arch Linux

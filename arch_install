@@ -1,18 +1,21 @@
-#!/bin/bash
+#!/bin/sh
 
 read -rp "This machine's name: " localhost
 read -rp "Your username of choice: " username
+username="${username,,}"
+
 size=$(lsblk | awk '/sda/ {print $4}')
 echo "The root partition size must not be greater than $size."
 read -rp "Set the root partition size (i.e. 5G): " rootsize
+rootsize="${rootsize^^}"
 
-cc=$(awk -F"[\"\"]" 'length($2)==2 && NR>2 {print $2}' \
-   <(curl -sL https://www.archlinux.org/mirrorlist/))
+cc=$(curl -sL https://www.archlinux.org/mirrorlist/ | \
+     awk -F"[\"\"]" 'length($2)==2 && NR>2 {print $2}')
 echo "Available country codes (used for mirrors):"
 echo "$cc" | column
 
 while read -rp "Your country (or closest location): " country ; do
-    if grep -qx "${country^^}" <<< "$cc" ; then
+    if grep -iqx "$country" <<< "$cc" ; then
         country="${country^^}"
         break
     else
@@ -24,8 +27,8 @@ uefi_partitioning() {
     parted -s --align optimal -- /dev/sda mklabel gpt \
         mkpart ESP fat32 1M 50M \
         set 1 boot on \
-        mkpart primary ext3 50M "${rootsize^^}" \
-        mkpart primary ext3 "${rootsize^^}" 100%
+        mkpart primary ext3 50M "$rootsize" \
+        mkpart primary ext3 "$rootsize" 100%
 
     mkfs.vfat -F32 /dev/sda1
     mkfs.ext4 /dev/sda2
@@ -40,8 +43,8 @@ uefi_partitioning() {
 
 bios_partitioning() {
     parted -s --align optimal -- /dev/sda mklabel msdos \
-        mkpart primary ext3 1M "${rootsize^^}" \
-        mkpart primary ext3 "${rootsize^^}" 100%
+        mkpart primary ext3 1M "$rootsize" \
+        mkpart primary ext3 "$rootsize" 100%
 
     mkfs.ext4 /dev/sda1
     mkfs.ext4 /dev/sda2
@@ -52,7 +55,7 @@ bios_partitioning() {
 }
 
 base_system() {
-    link="archlinux.org/mirrorlist/?country=${country^^}&use_mirror_status=on"
+    link="archlinux.org/mirrorlist/?country=$country&use_mirror_status=on"
     curl -sL "$link" | sed 's/#Server/Server/' > /etc/pacman.d/mirrorlist
     pacstrap /mnt base base-devel bash-completion expac pkgfile
     genfstab -U -p /mnt >> /mnt/etc/fstab
@@ -60,8 +63,8 @@ base_system() {
 
 local_information() {
     arch-chroot /mnt nano /etc/locale.gen
-    arch-chroot /mnt locale-gen
     locale=$(awk '!/\#/ {print $1}' /mnt/etc/locale.gen)
+    arch-chroot /mnt locale-gen
     arch-chroot /mnt echo "LANG=$locale" > /mnt/etc/locale.conf
     arch-chroot /mnt /bin/bash -c "export LANG=$locale"
 
@@ -74,9 +77,9 @@ local_information() {
     echo "Password for superuser:"
     arch-chroot /mnt passwd
 
-    arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash "${username,,}"
-    echo "Password for ${username,,}:"
-    arch-chroot /mnt passwd "${username,,}"
+    arch-chroot /mnt useradd -m -g users -G wheel,storage,power -s /bin/bash "$username"
+    echo "Password for $username:"
+    arch-chroot /mnt passwd "$username"
     arch-chroot /mnt sed -i "s/# %wheel ALL=(ALL) ALL/%wheel ALL=(ALL) ALL/" /etc/sudoers
 
     arch-chroot /mnt mkinitcpio -p linux

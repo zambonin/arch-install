@@ -44,6 +44,7 @@ uefi_partitioning() {
 bios_partitioning() {
     parted -s --align optimal -- /dev/sda mklabel msdos \
         mkpart primary ext3 1M "$rootsize" \
+        set 1 boot on \
         mkpart primary ext3 "$rootsize" 100%
 
     mkfs.ext4 /dev/sda1
@@ -88,7 +89,7 @@ local_information() {
 uefi_bootloader() {
     id="$(ls -l /dev/disk/by-partuuid | awk '/sda2/ {print $9}')"
     arch-chroot /mnt bootctl install
-    arch-chroot /mnt cat > /mnt/boot/loader/entries/arch.conf <<-EOF
+    cat > /mnt/boot/loader/entries/arch.conf <<-EOF
         title       Arch Linux
         linux       /vmlinuz-linux
         initrd      /initramfs-linux.img
@@ -97,8 +98,17 @@ EOF
 }
 
 bios_bootloader() {
-    arch-chroot /mnt grub-install --recheck /dev/sda
-    arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
+    syslinux-install_update -i -a -m -c /mnt/
+    cat > /mnt/boot/syslinux/syslinux.cfg <<-EOF
+        PROMPT 0
+        TIMEOUT 1
+        DEFAULT arch
+
+        LABEL arch
+            LINUX ../vmlinuz-linux
+            APPEND root=/dev/sda1 rw quiet splash
+            INITRD ../initramfs-linux.img
+EOF
 }
 
 uefi() {
@@ -111,7 +121,7 @@ uefi() {
 bios() {
     bios_partitioning
     base_system
-    arch-chroot /mnt pacman -S --noconfirm grub
+    arch-chroot /mnt pacman -S --noconfirm syslinux
     local_information
     bios_bootloader
 }

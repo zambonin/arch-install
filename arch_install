@@ -98,6 +98,7 @@ EOF
 }
 
 bios_bootloader() {
+    id="$(ls -l /dev/disk/by-uuid | awk '/sda1/ {print $9}')"
     syslinux-install_update -i -a -m -c /mnt/
     cat > /mnt/boot/syslinux/syslinux.cfg <<-EOF
         PROMPT 0
@@ -106,7 +107,7 @@ bios_bootloader() {
 
         LABEL arch
             LINUX ../vmlinuz-linux
-            APPEND root=/dev/sda1 rw quiet splash
+            APPEND root=UUID=$id rw quiet splash
             INITRD ../initramfs-linux.img
 EOF
 }

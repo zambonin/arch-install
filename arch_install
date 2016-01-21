@@ -123,4 +123,4 @@ bios() {
     bios_bootloader
 }
 
-[ "$(efivar -l 2>/dev/null | wc -l)" -gt 0 ] && uefi || bios
+[ "$(efivar -l)" ] && uefi || bios

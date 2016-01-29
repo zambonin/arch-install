@@ -58,31 +58,29 @@ base_system() {
 }
 
 local_information() {
-    arch-chroot /mnt nano /etc/locale.gen
+    nano /mnt/etc/locale.gen
     locale=$(awk '!/\#/ {print $1}' /mnt/etc/locale.gen)
     arch-chroot /mnt locale-gen
-    arch-chroot /mnt echo "LANG=$locale" > /mnt/etc/locale.conf
+    echo "LANG=$locale" > /mnt/etc/locale.conf
 
     timezone="$(tzselect)"
-    arch-chroot /mnt ln -s /usr/share/zoneinfo/"${timezone}" /etc/localtime
+    ln -s /usr/share/zoneinfo/"${timezone}" /mnt/etc/localtime
     arch-chroot /mnt hwclock --systohc --utc
 
-    arch-chroot /mnt echo "${localhost}" > /mnt/etc/hostname
+    echo "${localhost}" > /mnt/etc/hostname
 
     echo "Password for superuser:"
     arch-chroot /mnt passwd
 
-    arch-chroot /mnt useradd -m -g users -G wheel,storage,power "$username"
+    arch-chroot /mnt useradd -m -g users -G wheel "$username"
     echo "Password for $username:"
     arch-chroot /mnt passwd "$username"
-    arch-chroot /mnt sed -i "0,/# %w/s/# %w/%w/" /etc/sudoers
-
-    arch-chroot /mnt mkinitcpio -p linux
+    sed -i "0,/# %w/s/# %w/%w/" /mnt/etc/sudoers
 }
 
 uefi_bootloader() {
     id="$(ls -l /dev/disk/by-partuuid | awk '/sda2/ {print $9}')"
-    arch-chroot /mnt bootctl install
+    bootctl --path=/mnt/boot install
     cat > /mnt/boot/loader/entries/arch.conf <<-EOF
         title       Arch Linux
         linux       /vmlinuz-linux
@@ -116,7 +114,7 @@ uefi() {
 bios() {
     bios_partitioning
     base_system
-    arch-chroot /mnt pacman -S --noconfirm syslinux
+    pacman -r /mnt -S --noconfirm syslinux
     local_information
     bios_bootloader
 }

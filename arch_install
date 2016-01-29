@@ -9,8 +9,7 @@ echo "The root partition size must not be greater than $size."
 read -rp "Set the root partition size (i.e. 5G): " rootsize
 rootsize="${rootsize^^}"
 
-cc=$(curl -sL https://www.archlinux.org/mirrorlist/ | \
-     awk -F"[\"\"]" 'length($2)==2 && NR>2 {print $2}')
+cc=$(curl -sL archlinux.org/mirrorlist | sed -n 72,128p | cut -d\" -f2)
 echo "Available country codes (used for mirrors):"
 echo "$cc" | column
 
@@ -63,7 +62,6 @@ local_information() {
     locale=$(awk '!/\#/ {print $1}' /mnt/etc/locale.gen)
     arch-chroot /mnt locale-gen
     arch-chroot /mnt echo "LANG=$locale" > /mnt/etc/locale.conf
-    arch-chroot /mnt /bin/bash -c "export LANG=$locale"
 
     timezone="$(tzselect)"
     arch-chroot /mnt ln -s /usr/share/zoneinfo/"${timezone}" /etc/localtime

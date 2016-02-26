@@ -1,5 +1,5 @@
 ```
-root@archiso ~ # sh <(curl -sL goo.gl/FGROHc)
+root@archiso ~ # sh <(curl -sL git.io/vzWco)
 ```
 * root partition size should be at least 1½ GB
 * around 220 MB of data is downloaded

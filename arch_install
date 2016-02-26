@@ -1,20 +1,24 @@
 #!/bin/sh
 
-read -rp "This machine's name: " localhost
-read -rp "Your username of choice: " username
+printf "This machine's name: "
+read -r localhost
+printf "Your username of choice: "
+read -r username
 username="${username,,}"
 
 size=$(lsblk | awk '/sda/ {print $4}')
 echo "The root partition size must not be greater than $size."
-read -rp "Set the root partition size (i.e. 5G): " rootsize
+printf "Set the root partition size (i.e. 5G): "
+read -r rootsize
 rootsize="${rootsize^^}"
 
 cc=$(curl -sL archlinux.org/mirrorlist | sed -n 72,128p | cut -d\" -f2)
 echo "Available country codes (used for mirrors):"
 echo "$cc" | column
 
-while read -rp "Your country (or closest location): " country ; do
-    if grep -iqx "$country" <<< "$cc" ; then
+printf "Your country (or closest location): "
+while read -r country ; do
+    if printf '%s' "$cc" | grep -iqx "$country" ; then
         country="${country^^}"
         break
     else
@@ -79,7 +83,7 @@ local_information() {
 }
 
 uefi_bootloader() {
-    id="$(ls -l /dev/disk/by-partuuid | awk '/sda2/ {print $9}')"
+    id="$(blkid | awk -F\" '/sda2/ {print $6}')"
     bootctl --path=/mnt/boot install
     cat > /mnt/boot/loader/entries/arch.conf <<-EOF
         title       Arch Linux
@@ -90,7 +94,7 @@ EOF
 }
 
 bios_bootloader() {
-    id="$(ls -l /dev/disk/by-uuid | awk '/sda1/ {print $9}')"
+    id="$(blkid | awk -F\" '/sda1/ {print $2}')"
     syslinux-install_update -i -a -m -c /mnt/
     cat > /mnt/boot/syslinux/syslinux.cfg <<-EOF
         PROMPT 0
@@ -119,4 +123,8 @@ bios() {
     bios_bootloader
 }
 
-[ "$(efivar -l)" ] && uefi || bios
+if [ "$(efivar -l)" ] ; then
+    uefi
+else
+    bios
+fi

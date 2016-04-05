@@ -1,25 +1,25 @@
-#!/bin/sh
+#!/usr/bin/env sh
 
 printf "This machine's name: "
-read -r localhost
+read -r LOCALHOST
 printf "Your username of choice: "
-read -r username
-username="${username,,}"
+read -r USERNAME
+USERNAME="${USERNAME,,}"
 
-size=$(lsblk | awk '/sda/ {print $4}')
-echo "The root partition size must not be greater than $size."
+MAXSIZE=$(lsblk | awk '/sda/ {print $4; exit}')
+echo "The root partition size must not be greater than $MAXSIZE."
 printf "Set the root partition size (i.e. 5G): "
-read -r rootsize
-rootsize="${rootsize^^}"
+read -r ROOTSIZE
+ROOTSIZE="${ROOTSIZE^^}"
 
-cc=$(curl -sL archlinux.org/mirrorlist | sed -n 72,128p | cut -d\" -f2)
+CC=$(curl -sL archlinux.org/mirrorlist | awk -F\" '/\"[A-Z]{2}/ {print $2}')
 echo "Available country codes (used for mirrors):"
-echo "$cc" | column
+echo "$CC" | column
 
 printf "Your country (or closest location): "
-while read -r country ; do
-    if printf '%s' "$cc" | grep -iqx "$country" ; then
-        country="${country^^}"
+while read -r COUNTRY ; do
+    if printf '%s' "$CC" | grep -iqx "$COUNTRY" ; then
+        COUNTRY="${COUNTRY^^}"
         break
     else
         echo "Country not found! Please choose from one of the above."
@@ -30,8 +30,8 @@ uefi_partitioning() {
     parted -s --align optimal -- /dev/sda mklabel gpt \
         mkpart ESP fat32 1M 50M \
         set 1 boot on \
-        mkpart primary ext3 50M "$rootsize" \
-        mkpart primary ext3 "$rootsize" 100%
+        mkpart primary ext3 50M "$ROOTSIZE" \
+        mkpart primary ext3 "$ROOTSIZE" 100%
 
     mkfs.vfat -F32 /dev/sda1
     mkfs.ext4 /dev/sda2
@@ -44,9 +44,9 @@ uefi_partitioning() {
 
 bios_partitioning() {
     parted -s --align optimal -- /dev/sda mklabel msdos \
-        mkpart primary ext3 1M "$rootsize" \
+        mkpart primary ext3 1M "$ROOTSIZE" \
         set 1 boot on \
-        mkpart primary ext3 "$rootsize" 100%
+        mkpart primary ext3 "$ROOTSIZE" 100%
 
     mkfs.ext4 /dev/sda1
     mkfs.ext4 /dev/sda2
@@ -55,46 +55,46 @@ bios_partitioning() {
 }
 
 base_system() {
-    link="archlinux.org/mirrorlist/?country=$country&use_mirror_status=on"
-    curl -sL "$link" | sed 's/#Server/Server/' > /etc/pacman.d/mirrorlist
+    URL="archlinux.org/mirrorlist/?country=$COUNTRY&use_mirror_status=on"
+    curl -sL "$URL" | sed 's/#Server/Server/' > /etc/pacman.d/mirrorlist
     pacstrap /mnt base base-devel bash-completion expac pkgfile bc
     genfstab -U -p /mnt >> /mnt/etc/fstab
 }
 
 local_information() {
     nano /mnt/etc/locale.gen
-    locale=$(awk '!/\#/ {print $1}' /mnt/etc/locale.gen)
+    LOCALE=$(awk '!/\#/ {print $1}' /mnt/etc/locale.gen)
     arch-chroot /mnt locale-gen
-    echo "LANG=$locale" > /mnt/etc/locale.conf
+    echo "LANG=$LOCALE" > /mnt/etc/locale.conf
 
-    timezone="$(tzselect)"
-    ln -s /usr/share/zoneinfo/"${timezone}" /mnt/etc/localtime
+    TIMEZONE="$(tzselect)"
+    ln -s "/usr/share/zoneinfo/$TIMEZONE" /mnt/etc/localtime
     arch-chroot /mnt hwclock --systohc --utc
 
-    echo "${localhost}" > /mnt/etc/hostname
+    echo "$LOCALHOST" > /mnt/etc/hostname
 
     echo "Password for superuser:"
     arch-chroot /mnt passwd
 
-    arch-chroot /mnt useradd -m -g users -G wheel "$username"
-    echo "Password for $username:"
-    arch-chroot /mnt passwd "$username"
+    arch-chroot /mnt useradd -m -g users -G wheel "$USERNAME"
+    echo "Password for $USERNAME:"
+    arch-chroot /mnt passwd "$USERNAME"
     sed -i "0,/# %w/s/# %w/%w/" /mnt/etc/sudoers
 }
 
 uefi_bootloader() {
-    id="$(blkid | awk -F\" '/sda2/ {print $6}')"
+    PARTID="$(blkid | awk -F\" '/sda2/ {print $6}')"
     bootctl --path=/mnt/boot install
     cat > /mnt/boot/loader/entries/arch.conf <<-EOF
         title       Arch Linux
         linux       /vmlinuz-linux
         initrd      /initramfs-linux.img
-        options     root=PARTUUID=$id rw quiet splash
+        options     root=PARTUUID=$PARTID rw quiet splash
 EOF
 }
 
 bios_bootloader() {
-    id="$(blkid | awk -F\" '/sda1/ {print $2}')"
+    PARTID="$(blkid | awk -F\" '/sda1/ {print $2}')"
     syslinux-install_update -i -a -m -c /mnt/
     cat > /mnt/boot/syslinux/syslinux.cfg <<-EOF
         PROMPT 0
@@ -103,7 +103,7 @@ bios_bootloader() {
 
         LABEL arch
             LINUX ../vmlinuz-linux
-            APPEND root=UUID=$id rw quiet splash
+            APPEND root=UUID=$PARTID rw quiet splash
             INITRD ../initramfs-linux.img
 EOF
 }

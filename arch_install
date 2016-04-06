@@ -12,19 +12,21 @@ printf "Set the root partition size (i.e. 5G): "
 read -r ROOTSIZE
 ROOTSIZE="${ROOTSIZE^^}"
 
-CC=$(curl -sL archlinux.org/mirrorlist | awk -F\" '/\"[A-Z]{2}/ {print $2}')
-echo "Available country codes (used for mirrors):"
-echo "$CC" | column
+select_country() {
+    CC=$(curl -sL archlinux.org/mirrorlist | cut -d\" -f2 | grep [[:upper:]]$)
+    echo "Available country codes (used for mirrors):"
+    echo "$CC" | column
 
-printf "Your country (or closest location): "
-while read -r COUNTRY ; do
-    if printf '%s' "$CC" | grep -iqx "$COUNTRY" ; then
-        COUNTRY="${COUNTRY^^}"
-        break
-    else
-        echo "Country not found! Please choose from one of the above."
-    fi
-done
+    printf "Your country (or closest location): "
+    while read -r COUNTRY ; do
+        if echo "$CC" | grep -iqx "$COUNTRY" ; then
+            COUNTRY="$(echo "$COUNTRY" | tr '[:lower:]' '[:upper:]')"
+            break
+        else
+            printf "Invalid country! Try again: "
+        fi
+    done
+}
 
 uefi_partitioning() {
     parted -s --align optimal -- /dev/sda mklabel gpt \
@@ -122,6 +124,8 @@ bios() {
     local_information
     bios_bootloader
 }
+
+select_country
 
 if [ "$(efivar -l)" ] ; then
     uefi

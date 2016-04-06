@@ -2,18 +2,35 @@
 
 printf "This machine's name: "
 read -r LOCALHOST
-printf "Your username of choice: "
-read -r USERNAME
-USERNAME="${USERNAME,,}"
 
-MAXSIZE=$(lsblk | awk '/sda/ {print $4; exit}')
-echo "The root partition size must not be greater than $MAXSIZE."
-printf "Set the root partition size (i.e. 5G): "
-read -r ROOTSIZE
-ROOTSIZE="${ROOTSIZE^^}"
+set_username() {
+    PATTERN="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
+    printf "Enter your username: "
+    while read -r USER ; do
+        if echo "$USER" | grep -Ex "$PATTERN" ; then
+            break
+        else
+            printf "Invalid username! Try again: "
+        fi
+    done
+}
+
+set_partition_size() {
+    MAX="$(lsblk -br | grep -w "sda" | cut -d" " -f4)"
+    HUMAN="$(echo "$MAX" | numfmt --to=iec))"
+    printf "Set the root partition size (max. %s): " "$HUMAN"
+    while read -r ROOTSIZE ; do
+        if [ "$MAX" -gt "$(echo "$ROOTSIZE" | numfmt --from=iec)" ] ; then
+            break
+        else
+            printf "Invalid input! Try again: "
+        fi
+    done
+}
 
 select_country() {
-    CC=$(curl -sL archlinux.org/mirrorlist | cut -d\" -f2 | grep [[:upper:]]$)
+    CC=$(curl -sL archlinux.org/mirrorlist | \
+        cut -d\" -f2 | grep "[[:upper:]]$")
     echo "Available country codes (used for mirrors):"
     echo "$CC" | column
 
@@ -78,9 +95,9 @@ local_information() {
     echo "Password for superuser:"
     arch-chroot /mnt passwd
 
-    arch-chroot /mnt useradd -m -g users -G wheel "$USERNAME"
-    echo "Password for $USERNAME:"
-    arch-chroot /mnt passwd "$USERNAME"
+    arch-chroot /mnt useradd -m -g users -G wheel "$USER"
+    echo "Password for $USER:"
+    arch-chroot /mnt passwd "$USER"
     sed -i "0,/# %w/s/# %w/%w/" /mnt/etc/sudoers
 }
 
@@ -96,6 +113,7 @@ EOF
 }
 
 bios_bootloader() {
+    pacman -r /mnt -S --noconfirm syslinux
     PARTID="$(blkid | awk -F\" '/sda1/ {print $2}')"
     syslinux-install_update -i -a -m -c /mnt/
     cat > /mnt/boot/syslinux/syslinux.cfg <<-EOF
@@ -120,11 +138,12 @@ uefi() {
 bios() {
     bios_partitioning
     base_system
-    pacman -r /mnt -S --noconfirm syslinux
     local_information
     bios_bootloader
 }
 
+set_username
+set_partition_size
 select_country
 
 if [ "$(efivar -l)" ] ; then

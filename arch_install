@@ -128,26 +128,15 @@ bios_bootloader() {
 EOF
 }
 
-uefi() {
-    uefi_partitioning
-    base_system
-    local_information
-    uefi_bootloader
-}
-
-bios() {
-    bios_partitioning
-    base_system
-    local_information
-    bios_bootloader
-}
+MODE="bios"
+if [ -d "/sys/firmware/efi" ] ; then
+    MODE="uefi"
+fi
 
 set_username
 set_partition_size
 select_country
-
-if [ "$(efivar -l)" ] ; then
-    uefi
-else
-    bios
-fi
+"$MODE"_partitioning
+base_system
+local_information
+"$MODE"_bootloader

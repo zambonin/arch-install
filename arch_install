@@ -7,7 +7,7 @@ set_username() {
     PATTERN="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
     printf "Enter your username: "
     while read -r USER ; do
-        if echo "$USER" | grep -Ex "$PATTERN" ; then
+        if echo "$USER" | grep -Eqx "$PATTERN" ; then
             break
         else
             printf "Invalid username! Try again: "
@@ -29,8 +29,9 @@ set_partition_size() {
 }
 
 select_country() {
-    CC=$(curl -sL archlinux.org/mirrorlist | \
-        cut -d\" -f2 | grep "[[:upper:]]$")
+    CC=$(curl -sL archlinux.org/mirrorlist \
+            | cut -d\" -f2 \
+            | grep "[[:upper:]]$")
     echo "Available country codes (used for mirrors):"
     echo "$CC" | column
 
@@ -82,7 +83,7 @@ base_system() {
 
 local_information() {
     nano /mnt/etc/locale.gen
-    LOCALE=$(awk '!/\#/ {print $1}' /mnt/etc/locale.gen)
+    LOCALE="$(grep -v "\#" /mnt/etc/locale.gen | cut -d" " -f1)"
     arch-chroot /mnt locale-gen
     echo "LANG=$LOCALE" > /mnt/etc/locale.conf
 
@@ -102,7 +103,7 @@ local_information() {
 }
 
 uefi_bootloader() {
-    PARTID="$(blkid | awk -F\" '/sda2/ {print $6}')"
+    PARTID="$(blkid | grep sda2 | cut -d\" -f6)"
     bootctl --path=/mnt/boot install
     cat > /mnt/boot/loader/entries/arch.conf <<-EOF
         title       Arch Linux
@@ -114,7 +115,7 @@ EOF
 
 bios_bootloader() {
     pacman -r /mnt -S --noconfirm syslinux
-    PARTID="$(blkid | awk -F\" '/sda1/ {print $2}')"
+    PARTID="$(blkid | grep sda1 | cut -d\" -f2)"
     syslinux-install_update -i -a -m -c /mnt/
     cat > /mnt/boot/syslinux/syslinux.cfg <<-EOF
         PROMPT 0

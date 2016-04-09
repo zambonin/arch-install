@@ -1,14 +1,25 @@
 #!/usr/bin/env sh
 
-printf "This machine's name: "
-read -r LOCALHOST
+set_hostname() {
+    PATTERN="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
+    VALID_HOSTS="($PATTERN)(\.($PATTERN)){0,3}"
+    printf "Enter the hostname: "
+
+    while read -r HOST ; do
+        if echo "$HOST" | grep -Eqx "$VALID_HOSTS" ; then
+            break
+        else
+            printf "Invalid hostname! Try again: "
+        fi
+    done
+}
 
 set_username() {
-    PATTERN="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
+    VALID_NAMES="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
     printf "Enter your username: "
 
     while read -r USER ; do
-        if echo "$USER" | grep -Eqx "$PATTERN" ; then
+        if echo "$USER" | grep -Eqx "$VALID_NAMES" ; then
             break
         else
             printf "Invalid username! Try again: "
@@ -107,7 +118,7 @@ local_information() {
     ln -s "/usr/share/zoneinfo/$TIMEZONE" /mnt/etc/localtime
     arch-chroot /mnt hwclock --systohc --utc
 
-    echo "$LOCALHOST" > /mnt/etc/hostname
+    echo "$HOST" > /mnt/etc/hostname
 
     echo "Password for superuser:"
     arch-chroot /mnt passwd
@@ -145,11 +156,9 @@ bios_bootloader() {
 EOF
 }
 
-MODE="bios"
-if [ -d "/sys/firmware/efi" ] ; then
-    MODE="uefi"
-fi
+[ -d "/sys/firmware/efi" ] && MODE="uefi" || MODE="bios"
 
+set_hostname
 set_username
 choose_disk
 set_partition_sizes

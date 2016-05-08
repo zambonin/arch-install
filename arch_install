@@ -58,7 +58,7 @@ set_partition_sizes() {
 }
 
 select_country() {
-    CC=$(curl -sL archlinux.org/mirrorlist | cut -d\" -f2 | grep "[A-Z]$")
+    CC=$(curl -kLs archlinux.org/mirrorlist | cut -d\" -f2 | grep "[A-Z]$")
     echo "Available country codes (used for mirrors):"
     echo "$CC" | column
     printf "Your country (or closest location): "
@@ -103,7 +103,7 @@ bios_partitioning() {
 
 base_system() {
     URL="archlinux.org/mirrorlist/?country=$COUNTRY&use_mirror_status=on"
-    curl -sL "$URL" | sed 's/#Server/Server/' > /etc/pacman.d/mirrorlist
+    curl -kLs "$URL" | sed 's/#Server/Server/' > /etc/pacman.d/mirrorlist
     pacstrap /mnt base base-devel bash-completion expac pkgfile bc
     genfstab -U -p /mnt >> /mnt/etc/fstab
 }

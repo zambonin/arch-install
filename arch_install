@@ -16,7 +16,7 @@ set_hostname() {
 
 set_username() {
     VALID_NAMES="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
-    printf "Enter your username: "
+    printf "Enter the username: "
 
     while read -r USER ; do
         if echo "$USER" | grep -Eqx "$VALID_NAMES" ; then
@@ -30,7 +30,7 @@ set_username() {
 choose_disk() {
     DISKS="$(lsblk | grep "disk" | cut -d" " -f1)"
     echo "Available disks:"
-    echo "$DISKS" | column
+    echo "$(lsblk | awk '/disk/ {print $1, "("$4")"}')" | column
     printf "Choose the disk: "
 
     while read -r DISK ; do
@@ -61,7 +61,7 @@ select_country() {
     CC=$(curl -kLs archlinux.org/mirrorlist | cut -d\" -f2 | grep "[A-Z]$")
     echo "Available country codes (used for mirrors):"
     echo "$CC" | column
-    printf "Your country (or closest location): "
+    printf "Country code (or nearest location): "
 
     while read -r COUNTRY ; do
         if echo "$CC" | grep -iqx "$COUNTRY" ; then

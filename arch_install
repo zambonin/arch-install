@@ -57,21 +57,6 @@ set_partition_sizes() {
     done
 }
 
-select_country() {
-    CC=$(curl -kLs archlinux.org/mirrorlist | cut -d\" -f2 | grep "[A-Z]$")
-    echo "Available country codes (used for mirrors):"
-    echo "$CC" | column
-    printf "Country code (or nearest location): "
-
-    while read -r COUNTRY ; do
-        if echo "$CC" | grep -iqx "$COUNTRY" ; then
-            COUNTRY="$(echo "$COUNTRY" | tr '[:lower:]' '[:upper:]')"
-            break
-        else
-            printf "Invalid country! Try again: "
-        fi
-    done
-}
 
 uefi_partitioning() {
     parted -s --align optimal -- "$DISK" mklabel gpt \
@@ -101,9 +86,25 @@ bios_partitioning() {
     mount "${DISK}1" /mnt
 }
 
-base_system() {
-    URL="archlinux.org/mirrorlist/?country=$COUNTRY&use_mirror_status=on"
-    curl -kLs "$URL" | sed 's/#Server/Server/' > /etc/pacman.d/mirrorlist
+install_system() {
+    MIRROR="$(curl -kLs "archlinux.org/mirrorlist/?use_mirror_status=on")"
+    VALID_LOCATIONS="$(echo "$MIRROR" \
+                        | awk -F", " '/Score/ {print $2}' \
+                        | sort -u)"
+    echo "Countries that host mirrors:"
+    echo "$VALID_LOCATIONS" | column
+    printf "Country (or nearest location): "
+
+    while read -r COUNTRY ; do
+        if echo "$COUNTRY" | grep -qx "$VALID_LOCATIONS" ; then
+            break
+        else
+            printf "Invalid location! Try again: "
+        fi
+    done
+
+    echo "$MIRROR" | sed "/$COUNTRY/{n;s/#S/S/}" > /etc/pacman.d/mirrorlist
+
     pacstrap /mnt base base-devel bash-completion expac pkgfile bc
     genfstab -U -p /mnt >> /mnt/etc/fstab
 }
@@ -179,9 +180,8 @@ set_hostname
 set_username
 choose_disk
 set_partition_sizes
-select_country
 "$MODE"_partitioning
-base_system
+install_system
 select_locale
 local_information
 "$MODE"_bootloader

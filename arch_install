@@ -28,13 +28,13 @@ set_username() {
 }
 
 choose_disk() {
-    DISKS="$(lsblk | grep "disk" | cut -d" " -f1)"
+    VALID_DISKS="$(lsblk | grep "disk" | cut -d" " -f1)"
     echo "Available disks:"
-    echo "$(lsblk | awk '/disk/ {print $1, "("$4")"}')" | column
+    lsblk | awk '/disk/ {print $1, "("$4")"}' | column
     printf "Choose the disk: "
 
     while read -r DISK ; do
-        if echo "$DISK" | grep -iqx "$DISKS" ; then
+        if echo "$DISK" | grep -iqx "$VALID_DISKS" ; then
             DISK="/dev/$(echo "$DISK" | tr '[:upper:]' '[:lower:]')"
             break
         else
@@ -108,11 +108,28 @@ base_system() {
     genfstab -U -p /mnt >> /mnt/etc/fstab
 }
 
+select_locale() {
+    VALID_LOCALES="$(sed 's/\#//' /etc/locale.gen \
+                        | grep -Eo "[a-z]{2,}_[A-Z]{2}" \
+                        | sort -u)"
+    echo "Available locales:"
+    echo "$VALID_LOCALES" | column
+    printf "Locale for the system: "
+
+    while read -r LOCALE ; do
+        if echo "$LOCALE" | grep -qx "$VALID_LOCALES" ; then
+            sed -i "s/#$LOCALE/$LOCALE/" /mnt/etc/locale.gen
+            break
+        else
+            printf "Invalid locale! Try again: "
+        fi
+    done
+}
+
 local_information() {
-    nano /mnt/etc/locale.gen
-    LOCALE="$(grep -v "\#" /mnt/etc/locale.gen | cut -d" " -f1)"
     arch-chroot /mnt locale-gen
-    echo "LANG=$LOCALE" > /mnt/etc/locale.conf
+    echo "LANG=$(grep -m1 "$LOCALE" /mnt/etc/locale.gen \
+                    | cut -d" " -f1)" > /mnt/etc/locale.conf
 
     TIMEZONE="$(tzselect)"
     ln -s "/usr/share/zoneinfo/$TIMEZONE" /mnt/etc/localtime
@@ -165,5 +182,6 @@ set_partition_sizes
 select_country
 "$MODE"_partitioning
 base_system
+select_locale
 local_information
 "$MODE"_bootloader

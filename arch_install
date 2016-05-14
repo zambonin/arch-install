@@ -1,45 +1,31 @@
 #!/usr/bin/env sh
 
-set_hostname() {
-    PATTERN="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
-    VALID_HOSTS="($PATTERN)(\.($PATTERN)){0,3}"
-    printf "Enter the hostname: "
-
-    while read -r HOST ; do
-        if echo "$HOST" | grep -Eqx "$VALID_HOSTS" ; then
+prompt() {
+    printf "$1"
+    while read -r VAR ; do
+        if echo "$VAR" | grep -Eqx "$3" ; then
+            eval "$2=$VAR"
             break
         else
-            printf "Invalid hostname! Try again: "
+            printf "Invalid input! Try again: "
         fi
     done
+}
+
+set_hostname() {
+    PATTERN="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
+    prompt "Enter the hostname: " HOST "($PATTERN)(\.($PATTERN)){0,3}"
 }
 
 set_username() {
     VALID_NAMES="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
-    printf "Enter the username: "
-
-    while read -r USER ; do
-        if echo "$USER" | grep -Eqx "$VALID_NAMES" ; then
-            break
-        else
-            printf "Invalid username! Try again: "
-        fi
-    done
+    prompt "Enter the username: " USER "$VALID_NAMES"
 }
 
 choose_disk() {
-    VALID_DISKS="$(lsblk -pr | grep "disk" | cut -d" " -f1)"
     echo "Available disks:"
     lsblk -pr | awk '/disk/ {print $1, "("$4")"}' | column
-    printf "Choose the disk: "
-
-    while read -r DISK ; do
-        if echo "$DISK" | grep -qx "$VALID_DISKS" ; then
-            break
-        else
-            printf "Invalid disk! Try again: "
-        fi
-    done
+    prompt "Choose the disk: " DISK "$(lsblk -p | grep "disk" | cut -d" " -f1)"
 }
 
 set_partition_sizes() {
@@ -91,15 +77,8 @@ install_system() {
                         | sort -u)"
     echo "Countries that host mirrors:"
     echo "$VALID_LOCATIONS" | column
-    printf "Country (or nearest location): "
 
-    while read -r COUNTRY ; do
-        if echo "$COUNTRY" | grep -qx "$VALID_LOCATIONS" ; then
-            break
-        else
-            printf "Invalid location! Try again: "
-        fi
-    done
+    prompt "Country (or nearest location): " COUNTRY "$VALID_LOCATIONS"
 
     echo "$MIRROR" | sed "/$COUNTRY/{n;s/#S/S/}" > /etc/pacman.d/mirrorlist
 
@@ -113,15 +92,8 @@ select_locale() {
                         | sort -u)"
     echo "Available locales:"
     echo "$VALID_LOCALES" | column
-    printf "Locale for the system: "
 
-    while read -r LOCALE ; do
-        if echo "$LOCALE" | grep -qx "$VALID_LOCALES" ; then
-            break
-        else
-            printf "Invalid locale! Try again: "
-        fi
-    done
+    prompt "Locale for the system: " LOCALE "$VALID_LOCALES"
 
     sed -i "s/#$LOCALE/$LOCALE/" /mnt/etc/locale.gen
     arch-chroot /mnt locale-gen

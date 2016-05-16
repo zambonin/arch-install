@@ -1,0 +1,38 @@
+This install script intends to streamline the installation process of Arch
+Linux; it will automate file editing and creation, and some system-wide
+configurations. It intends to be POSIX-compliant and follow the Beginner's
+Guide [1] whenever possible.
+
+It can be run with the following command on an Arch Linux live media:
+
+    sh <(curl -Ls git.io/vzWco)
+
+Some caveats about the installation:
+
+    * the script cannot be executed by piping `curl` to `sh`, since it
+    needs a lot of user input
+
+    * it was tested that the root partition should be created with at least
+    1½ GB of space;
+
+    * the script is meant to be used with a fully formatted disk; unknown
+    behavior is expected otherwise
+
+    * to change the mount folder, use the following command instead (ignore
+    the folder's trailing slash):
+
+        sh <(curl -Ls git.io/vzWco | sed "s/mnt/$MOUNTPOINT/")
+
+    * to change the EFI system partition size, use the following command
+    for installation (use valid `parted` units [2]):
+
+        sh <(curl -Ls git.io/vzWco | sed "s/50M/$BOOTSIZE/")
+
+    * likewise, to change the `home` partition size, use:
+
+        sh <(curl -Ls git.io/vzWco | sed "s/100%/$HOMESIZE/")
+
+    * one can save the script locally and customize all of those
+
+[1] https://wiki.archlinux.org/index.php/Beginners%27_guide
+[2] http://www.gnu.org/software/parted/manual/parted.html#unit

@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 prompt() {
-    printf "$1"
+    printf "%s" "$1"
     while read -r VAR ; do
         if echo "$VAR" | grep -Eqx "$3" ; then
             eval "$2=$VAR"
@@ -12,24 +12,13 @@ prompt() {
     done
 }
 
-set_hostname() {
-    PATTERN="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
-    prompt "Enter the hostname: " HOST "($PATTERN)(\.($PATTERN)){0,3}"
-}
-
-set_username() {
-    VALID_NAMES="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
-    prompt "Enter the username: " USER "$VALID_NAMES"
-}
-
-choose_disk() {
+setup_disk() {
+    alias lsblk='lsblk -dn -e 2,7,11'
     echo "Available disks:"
-    lsblk -pr | awk '/disk/ {print $1, "("$4")"}' | column
-    prompt "Choose the disk: " DISK "$(lsblk -p | grep "disk" | cut -d" " -f1)"
-}
+    lsblk -dn -e 2,7,11 -p -o NAME,SIZE | column
+    prompt "Choose the disk: " DISK "$(lsblk -dn -e 2,7,11 -p -o NAME)"
 
-set_partition_sizes() {
-    MAX="$(lsblk -bpr | grep -w "$DISK" | cut -d" " -f4)"
+    MAX="$(lsblk -dn -e 2,7,11 -b -o SIZE "$DISK")"
     HUMAN="$(echo "$MAX" | numfmt --to=iec)"
     printf "Set the root partition size (max. %s): " "$HUMAN"
 
@@ -79,7 +68,6 @@ install_system() {
     echo "$VALID_LOCATIONS" | column
 
     prompt "Country (or nearest location): " COUNTRY "$VALID_LOCATIONS"
-
     echo "$MIRROR" | sed "/$COUNTRY/{n;s/#S/S/}" > /etc/pacman.d/mirrorlist
 
     pacstrap /mnt base base-devel bash-completion expac pkgfile bc
@@ -94,31 +82,36 @@ select_locale() {
     echo "$VALID_LOCALES" | column
 
     prompt "Locale for the system: " LOCALE "$VALID_LOCALES"
-
     sed -i "s/#$LOCALE/$LOCALE/" /mnt/etc/locale.gen
+
     arch-chroot /mnt locale-gen
     echo "LANG=$(grep -m1 "$LOCALE" /mnt/etc/locale.gen \
                     | cut -d" " -f1)" > /mnt/etc/locale.conf
 }
 
 user_information() {
+    PATTERN="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
+    prompt "Enter the hostname: " HOST "($PATTERN)(\.($PATTERN)){0,3}"
+    echo "$HOST" > /mnt/etc/hostname
+
     TIMEZONE="$(tzselect)"
     ln -s "/usr/share/zoneinfo/$TIMEZONE" /mnt/etc/localtime
     arch-chroot /mnt hwclock --systohc --utc
 
-    echo "$HOST" > /mnt/etc/hostname
-
     echo "Password for superuser:"
     arch-chroot /mnt passwd
 
+    VALID_NAMES="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
+    prompt "Enter the username: " USER "$VALID_NAMES"
     arch-chroot /mnt useradd -m -g users -G wheel "$USER"
+
     echo "Password for $USER:"
     arch-chroot /mnt passwd "$USER"
     sed -i "0,/# %w/s/# %w/%w/" /mnt/etc/sudoers
 }
 
 uefi_bootloader() {
-    PARTID="$(blkid | grep "${DISK}2" | cut -d\" -f6)"
+    PARTID="$(blkid -o value -s PARTUUID "${DISK}2")"
     bootctl --path=/mnt/boot install
     cat > /mnt/boot/loader/entries/arch.conf <<-EOF
         title       Arch Linux
@@ -129,27 +122,14 @@ EOF
 }
 
 bios_bootloader() {
-    pacman -r /mnt -S --noconfirm syslinux
-    PARTID="$(blkid | grep "${DISK}1" | cut -d\" -f2)"
-    syslinux-install_update -i -a -m -c /mnt/
-    cat > /mnt/boot/syslinux/syslinux.cfg <<-EOF
-        PROMPT 0
-        TIMEOUT 1
-        DEFAULT arch
-
-        LABEL arch
-            LINUX ../vmlinuz-linux
-            APPEND root=UUID=$PARTID rw quiet splash
-            INITRD ../initramfs-linux.img
-EOF
+    pacman -r /mnt -S --noconfirm grub
+    arch-chroot /mnt grub-install --target=i386-pc "$DISK"
+    arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
 }
 
 [ -d "/sys/firmware/efi" ] && MODE="uefi" || MODE="bios"
 
-set_hostname
-set_username
-choose_disk
-set_partition_sizes
+setup_disk
 "$MODE"_partitioning
 install_system
 select_locale

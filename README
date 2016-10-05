@@ -1,6 +1,6 @@
 This install script intends to streamline the installation process of Arch
 Linux; it will automate file editing and creation, and some system-wide
-configurations. It intends to be POSIX-compliant and follow the Beginner's
+configurations. It intends to be POSIX-compliant and follow the Installation
 Guide [1] whenever possible.
 
 It can be run with the following command on an Arch Linux live media:
@@ -34,5 +34,5 @@ Some caveats about the installation:
 
     * one can save the script locally and customize all of those
 
-[1] https://wiki.archlinux.org/index.php/Beginners%27_guide
+[1] https://wiki.archlinux.org/index.php/Installation_guide
 [2] http://www.gnu.org/software/parted/manual/parted.html#unit

@@ -13,7 +13,6 @@ prompt() {
 }
 
 setup_disk() {
-    alias lsblk='lsblk -dn -e 2,7,11'
     echo "Available disks:"
     lsblk -dn -e 2,7,11 -p -o NAME,SIZE | column
     prompt "Choose the disk: " DISK "$(lsblk -dn -e 2,7,11 -p -o NAME)"

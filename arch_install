@@ -1,129 +1,134 @@
 #!/usr/bin/env sh
 
+# Shell script to automate Arch Linux's installation. It can be executed
+# by running the following command inside a live media environment:
+#
+#   sh <(curl -Ls git.io/vzWco)
+
 prompt() {
-    printf "%s" "$1"
-    while read -r VAR ; do
-        if echo "$VAR" | grep -Eqx "$3" ; then
-            eval "$2=$VAR"
-            break
-        else
-            printf "Invalid input! Try again: "
-        fi
-    done
+  printf "%s" "$1"
+  while read -r VAR ; do
+    if echo "$VAR" | grep -Eqx "$3" ; then
+      eval "$2='$VAR'"
+      break
+    else
+      printf "Invalid input! Try again: "
+    fi
+  done
 }
 
 setup_disk() {
-    echo "Available disks:"
-    lsblk -dn -e 2,7,11 -p -o NAME,SIZE | column
-    prompt "Choose the disk: " DISK "$(lsblk -dn -e 2,7,11 -p -o NAME)"
+  echo "Available disks:"
+  lsblk -dn -e 2,7,11 -p -o NAME,SIZE | column
+  prompt "Choose the disk: " DISK "$(lsblk -dn -e 2,7,11 -p -o NAME)"
 
-    MAX="$(lsblk -dn -e 2,7,11 -b -o SIZE "$DISK")"
-    HUMAN="$(echo "$MAX" | numfmt --to=iec)"
-    printf "Set the root partition size (max. %s): " "$HUMAN"
+  MAX="$(lsblk -dn -e 2,7,11 -b -o SIZE "$DISK")"
+  HUMAN="$(echo "$MAX" | numfmt --to=iec)"
+  printf "Set the root partition size (max. %s): " "$HUMAN"
 
-    while read -r ROOTSIZE ; do
-        if [ "$MAX" -gt "$(echo "$ROOTSIZE" | numfmt --from=iec)" ] ; then
-            break
-        else
-            printf "Invalid input! Try again: "
-        fi
-    done
+  while read -r ROOTSIZE ; do
+    if [ "$MAX" -gt "$(echo "$ROOTSIZE" | numfmt --from=iec)" ] ; then
+      break
+    else
+      printf "Invalid input! Try again: "
+    fi
+  done
 }
 
 uefi_partitioning() {
-    parted -s --align optimal -- "$DISK" mklabel gpt \
-        mkpart ESP fat32 1M 50M \
-        set 1 boot on \
-        mkpart primary ext3 50M "$ROOTSIZE" \
-        mkpart primary ext3 "$ROOTSIZE" 100%
+  parted -s --align optimal -- "$DISK" mklabel gpt \
+    mkpart ESP fat32 1M 50M \
+    set 1 boot on \
+    mkpart primary ext3 50M "$ROOTSIZE" \
+    mkpart primary ext3 "$ROOTSIZE" 100%
 
-    mkfs.vfat -F32 "${DISK}1"
-    mkfs.ext4 "${DISK}2"
-    mkfs.ext4 "${DISK}3"
+  mkfs.vfat -F32 "${DISK}1"
+  mkfs.ext4 "${DISK}2"
+  mkfs.ext4 "${DISK}3"
 
-    mount "${DISK}2" /mnt
-    mkdir -p /mnt/boot
-    mount "${DISK}1" /mnt/boot
+  mount "${DISK}2" /mnt
+  mkdir -p /mnt/boot
+  mount "${DISK}1" /mnt/boot
 }
 
 bios_partitioning() {
-    parted -s --align optimal -- "$DISK" mklabel msdos \
-        mkpart primary ext3 1M "$ROOTSIZE" \
-        set 1 boot on \
-        mkpart primary ext3 "$ROOTSIZE" 100%
+  parted -s --align optimal -- "$DISK" mklabel msdos \
+    mkpart primary ext3 1M "$ROOTSIZE" \
+    set 1 boot on \
+    mkpart primary ext3 "$ROOTSIZE" 100%
 
-    mkfs.ext4 "${DISK}1"
-    mkfs.ext4 "${DISK}2"
+  mkfs.ext4 "${DISK}1"
+  mkfs.ext4 "${DISK}2"
 
-    mount "${DISK}1" /mnt
+  mount "${DISK}1" /mnt
 }
 
 install_system() {
-    MIRROR="$(curl -kLs "archlinux.org/mirrorlist/?use_mirror_status=on")"
-    VALID_LOCATIONS="$(echo "$MIRROR" \
-                        | awk -F", " '/Score/ {print $2}' \
-                        | sort -u)"
-    echo "Countries that host mirrors:"
-    echo "$VALID_LOCATIONS" | column
+  MIRROR="$(curl -kLs "archlinux.org/mirrorlist/?use_mirror_status=on")"
+  VALID_LOCATIONS="$(echo "$MIRROR" \
+    | awk -F", " '/Score/ {print $2}' \
+    | sort -u)"
+  echo "Countries that host mirrors:"
+  echo "$VALID_LOCATIONS" | column
 
-    prompt "Country (or nearest location): " COUNTRY "$VALID_LOCATIONS"
-    echo "$MIRROR" | sed "/$COUNTRY/{n;s/#S/S/}" > /etc/pacman.d/mirrorlist
+  prompt "Country (or nearest location): " COUNTRY "$VALID_LOCATIONS"
+  echo "$MIRROR" | sed "/$COUNTRY/{n;s/#S/S/}" > /etc/pacman.d/mirrorlist
 
-    pacstrap /mnt base base-devel bash-completion expac pkgfile bc
-    genfstab -U -p /mnt >> /mnt/etc/fstab
+  pacstrap /mnt base base-devel bash-completion expac pkgfile bc
+  genfstab -U -p /mnt >> /mnt/etc/fstab
 }
 
 select_locale() {
-    VALID_LOCALES="$(sed 's/\#//' /etc/locale.gen \
-                        | grep -Eo "[a-z]{2,}_[A-Z]{2}" \
-                        | sort -u)"
-    echo "Available locales:"
-    echo "$VALID_LOCALES" | column
+  VALID_LOCALES="$(sed 's/\#//' /etc/locale.gen \
+    | grep -Eo "[a-z]{2,}_[A-Z]{2}" \
+    | sort -u)"
+  echo "Available locales:"
+  echo "$VALID_LOCALES" | column
 
-    prompt "Locale for the system: " LOCALE "$VALID_LOCALES"
-    sed -i "s/#$LOCALE/$LOCALE/" /mnt/etc/locale.gen
+  prompt "Locale for the system: " LOCALE "$VALID_LOCALES"
+  sed -i "s/#$LOCALE/$LOCALE/" /mnt/etc/locale.gen
 
-    arch-chroot /mnt locale-gen
-    echo "LANG=$(grep -m1 "$LOCALE" /mnt/etc/locale.gen \
-                    | cut -d" " -f1)" > /mnt/etc/locale.conf
+  arch-chroot /mnt locale-gen
+  echo "LANG=$(grep -m1 "$LOCALE" /mnt/etc/locale.gen \
+    | cut -d" " -f1)" > /mnt/etc/locale.conf
 }
 
 user_information() {
-    PATTERN="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
-    prompt "Enter the hostname: " HOST "($PATTERN)(\.($PATTERN)){0,3}"
-    echo "$HOST" > /mnt/etc/hostname
+  PATTERN="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
+  prompt "Enter the hostname: " HOST "($PATTERN)(\.($PATTERN)){0,3}"
+  echo "$HOST" > /mnt/etc/hostname
 
-    TIMEZONE="$(tzselect)"
-    ln -s "/usr/share/zoneinfo/$TIMEZONE" /mnt/etc/localtime
-    arch-chroot /mnt hwclock --systohc --utc
+  TIMEZONE="$(tzselect)"
+  ln -s "/usr/share/zoneinfo/$TIMEZONE" /mnt/etc/localtime
+  arch-chroot /mnt hwclock --systohc --utc
 
-    echo "Password for superuser:"
-    arch-chroot /mnt passwd
+  echo "Password for superuser:"
+  arch-chroot /mnt passwd
 
-    VALID_NAMES="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
-    prompt "Enter the username: " USER "$VALID_NAMES"
-    arch-chroot /mnt useradd -m -g users -G wheel "$USER"
+  VALID_NAMES="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
+  prompt "Enter the username: " USER "$VALID_NAMES"
+  arch-chroot /mnt useradd -m -g users -G wheel "$USER"
 
-    echo "Password for $USER:"
-    arch-chroot /mnt passwd "$USER"
-    sed -i "0,/# %w/s/# %w/%w/" /mnt/etc/sudoers
+  echo "Password for $USER:"
+  arch-chroot /mnt passwd "$USER"
+  sed -i "0,/# %w/s/# %w/%w/" /mnt/etc/sudoers
 }
 
 uefi_bootloader() {
-    PARTID="$(blkid -o value -s PARTUUID "${DISK}2")"
-    bootctl --path=/mnt/boot install
-    cat > /mnt/boot/loader/entries/arch.conf <<-EOF
-        title       Arch Linux
-        linux       /vmlinuz-linux
-        initrd      /initramfs-linux.img
-        options     root=PARTUUID=$PARTID rw quiet splash
+  PARTID="$(blkid -o value -s PARTUUID "${DISK}2")"
+  bootctl --path=/mnt/boot install
+  cat > /mnt/boot/loader/entries/arch.conf <<-EOF
+  title       Arch Linux
+  linux       /vmlinuz-linux
+  initrd      /initramfs-linux.img
+  options     root=PARTUUID=$PARTID rw quiet splash
 EOF
 }
 
 bios_bootloader() {
-    pacman -r /mnt -S --noconfirm grub
-    arch-chroot /mnt grub-install --target=i386-pc "$DISK"
-    arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
+  pacman -r /mnt -S --noconfirm grub
+  arch-chroot /mnt grub-install --target=i386-pc "$DISK"
+  arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
 }
 
 [ -d "/sys/firmware/efi" ] && MODE="uefi" || MODE="bios"

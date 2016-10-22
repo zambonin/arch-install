@@ -13,7 +13,7 @@ Some caveats about the installation:
     needs a lot of user input
 
     * it was tested that the root partition should be created with at least
-    1½ GB of space;
+    1½ GB of space
 
     * the script is meant to be used with a fully formatted disk; unknown
     behavior is expected otherwise

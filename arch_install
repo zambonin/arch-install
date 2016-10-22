@@ -25,7 +25,7 @@ set -e -u -o pipefail
     done
   }
 
-  setup_disk() {
+  { # disk partitioning
     echo "Available disks:"
     lsblk -dn -e 2,7,11 -p -o NAME,SIZE | column
     prompt "Choose the disk: " DISK "$(lsblk -dn -e 2,7,11 -p -o NAME)"
@@ -41,11 +41,11 @@ set -e -u -o pipefail
         printf "Invalid input! Try again: "
       fi
     done
-  }
 
-  uefi_partitioning() {
-    parted -s --align optimal -- "$DISK" mklabel gpt \
-      mkpart ESP fat32 1M 50M \
+    [ -d "/sys/firmware/efi" ] && LABEL="gpt" || LABEL="msdos"
+
+    parted -s --align optimal -- "$DISK" mklabel "$LABEL" \
+      mkpart primary fat32 1M 50M \
       set 1 boot on \
       mkpart primary ext3 50M "$ROOTSIZE" \
       mkpart primary ext3 "$ROOTSIZE" 100%
@@ -59,19 +59,7 @@ set -e -u -o pipefail
     mount "${DISK}1" /mnt/boot
   }
 
-  bios_partitioning() {
-    parted -s --align optimal -- "$DISK" mklabel msdos \
-      mkpart primary ext3 1M "$ROOTSIZE" \
-      set 1 boot on \
-      mkpart primary ext3 "$ROOTSIZE" 100%
-
-    mkfs.ext4 "${DISK}1"
-    mkfs.ext4 "${DISK}2"
-
-    mount "${DISK}1" /mnt
-  }
-
-  install_system() {
+  { # mirror configuration and base system install
     MIRROR="$(curl -kLs "archlinux.org/mirrorlist/?use_mirror_status=on")"
     VALID_LOCATIONS="$(echo "$MIRROR" \
       | awk -F", " '/Score/ {print $2}' \
@@ -82,11 +70,11 @@ set -e -u -o pipefail
     prompt "Country (or nearest location): " COUNTRY "$VALID_LOCATIONS"
     echo "$MIRROR" | sed "/$COUNTRY/{n;s/#S/S/}" > /etc/pacman.d/mirrorlist
 
-    pacstrap /mnt base base-devel bash-completion expac pkgfile bc
+    pacstrap /mnt base base-devel bash-completion expac pkgfile bc grub
     genfstab -U -p /mnt >> /mnt/etc/fstab
   }
 
-  select_locale() {
+  { # locale and timezone configuration
     VALID_LOCALES="$(sed 's/\#//' /etc/locale.gen \
       | grep -Eo "[a-z]{2,}_[A-Z]{2}" \
       | sort -u)"
@@ -99,16 +87,16 @@ set -e -u -o pipefail
     arch-chroot /mnt locale-gen
     echo "LANG=$(grep -m1 "$LOCALE" /mnt/etc/locale.gen \
       | cut -d" " -f1)" > /mnt/etc/locale.conf
-  }
-
-  user_information() {
-    PATTERN="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
-    prompt "Enter the hostname: " HOST "($PATTERN)(\.($PATTERN)){0,3}"
-    echo "$HOST" > /mnt/etc/hostname
 
     TIMEZONE="$(tzselect)"
     ln -s "/usr/share/zoneinfo/$TIMEZONE" /mnt/etc/localtime
     arch-chroot /mnt hwclock --systohc --utc
+  }
+
+  { # hostname, user account and password configuration
+    PATTERN="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
+    prompt "Enter the hostname: " HOST "($PATTERN)(\.($PATTERN)){0,3}"
+    echo "$HOST" > /mnt/etc/hostname
 
     echo "Password for superuser:"
     arch-chroot /mnt passwd
@@ -122,30 +110,15 @@ set -e -u -o pipefail
     sed -i "0,/# %w/s/# %w/%w/" /mnt/etc/sudoers
   }
 
-  uefi_bootloader() {
-    PARTID="$(blkid -o value -s PARTUUID "${DISK}2")"
-    bootctl --path=/mnt/boot install
-    cat > /mnt/boot/loader/entries/arch.conf <<-EOF
-    title       Arch Linux
-    linux       /vmlinuz-linux
-    initrd      /initramfs-linux.img
-    options     root=PARTUUID=$PARTID rw quiet splash
-EOF
-}
-
-bios_bootloader() {
-  pacman -r /mnt -S --noconfirm grub
-  arch-chroot /mnt grub-install --target=i386-pc "$DISK"
-  arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
-}
-
-[ -d "/sys/firmware/efi" ] && MODE="uefi" || MODE="bios"
-
-setup_disk
-"$MODE"_partitioning
-install_system
-select_locale
-user_information
-"$MODE"_bootloader
+  { # bootloader installation
+    if [ -d "/sys/firmware/efi" ] ; then
+      pacman -r /mnt -S --noconfirm efibootmgr
+      arch-chroot /mnt grub-install --target=x86_64-efi \
+        --efi-directory=/boot --bootloader-id=boot
+    else
+      arch-chroot /mnt grub-install --target=i386-pc "$DISK"
+    fi
+    arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
+  }
 
 }

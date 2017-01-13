@@ -97,6 +97,7 @@ set -e -u -o pipefail
     PATTERN="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
     prompt "Enter the hostname: " HOST "($PATTERN)(\.($PATTERN)){0,3}"
     echo "$HOST" > /mnt/etc/hostname
+    sed -i "7a 127.0.1.1\t$HOST.localdomain\tlocalhost" /etc/hosts
 
     echo "Password for superuser:"
     arch-chroot /mnt passwd

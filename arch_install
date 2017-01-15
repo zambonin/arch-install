@@ -89,7 +89,7 @@ set -e -u -o pipefail
       | cut -d" " -f1)" > /mnt/etc/locale.conf
 
     TIMEZONE="$(tzselect)"
-    ln -s "/usr/share/zoneinfo/$TIMEZONE" /mnt/etc/localtime
+    ln -sf "/usr/share/zoneinfo/$TIMEZONE" /mnt/etc/localtime
     arch-chroot /mnt hwclock --systohc --utc
   }
 
@@ -108,7 +108,7 @@ set -e -u -o pipefail
 
     echo "Password for $USER:"
     arch-chroot /mnt passwd "$USER"
-    sed -i "0,/# %w/s/# %w/%w/" /mnt/etc/sudoers
+    echo "%wheel ALL=(ALL) ALL" > /mnt/etc/sudoers.d/99_enable_wheel
   }
 
   { # bootloader installation

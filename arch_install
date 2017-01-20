@@ -12,7 +12,6 @@ set -e -u -o pipefail
 # if the closing bracket is reached, preventing undesired behavior if the
 # connection is terminated when the script is being downloaded.
 {
-
   prompt() {
     printf "%s" "$1"
     while read -r VAR ; do
@@ -61,9 +60,7 @@ set -e -u -o pipefail
 
   { # mirror configuration and base system install
     MIRROR="$(curl -kLs "archlinux.org/mirrorlist/?use_mirror_status=on")"
-    VALID_LOCATIONS="$(echo "$MIRROR" \
-      | awk -F", " '/Score/ {print $2}' \
-      | sort -u)"
+    VALID_LOCATIONS="$(echo "$MIRROR" | awk -F", " '{print $2}' | sort -u)"
     echo "Countries that host mirrors:"
     echo "$VALID_LOCATIONS" | column
 
@@ -72,12 +69,11 @@ set -e -u -o pipefail
 
     pacstrap /mnt base base-devel bash-completion expac pkgfile bc grub
     genfstab -U -p /mnt >> /mnt/etc/fstab
+    cp -f {,/mnt}/etc/pacman.d/mirrorlist
   }
 
   { # locale and timezone configuration
-    VALID_LOCALES="$(sed 's/\#//' /etc/locale.gen \
-      | grep -Eo "[a-z]{2,}_[A-Z]{2}" \
-      | sort -u)"
+    VALID_LOCALES="$(grep -Eo "[a-z]{2,}_[A-Z]{2}" /etc/locale.gen | sort -u)"
     echo "Available locales:"
     echo "$VALID_LOCALES" | column
 
@@ -97,7 +93,7 @@ set -e -u -o pipefail
     PATTERN="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
     prompt "Enter the hostname: " HOST "($PATTERN)(\.($PATTERN)){0,3}"
     echo "$HOST" > /mnt/etc/hostname
-    sed -i "7a 127.0.1.1\t$HOST.localdomain\tlocalhost" /etc/hosts
+    sed -i "7a 127.0.1.1\t$HOST.localdomain\t$HOST" /mnt/etc/hosts
 
     echo "Password for superuser:"
     arch-chroot /mnt passwd
@@ -121,5 +117,4 @@ set -e -u -o pipefail
     fi
     arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
   }
-
 }

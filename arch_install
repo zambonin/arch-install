@@ -15,7 +15,8 @@ set -e -u -o pipefail
   prompt() {
     printf "%s" "$1"
     while read -r VAR ; do
-      if echo "$VAR" | grep -Eqx "$3" ; then
+      if echo "$VAR" | grep -Eqx "$3" || \
+         [ "$3" -gt "$(echo "$VAR" | numfmt --from=iec)" ] ; then
         eval "$2='$VAR'"
         break
       else
@@ -26,23 +27,13 @@ set -e -u -o pipefail
 
   { # disk partitioning
     echo "Available disks:"
-    lsblk -dn -e 2,7,11 -p -o NAME,SIZE | column
-    prompt "Choose the disk: " DISK "$(lsblk -dn -e 2,7,11 -p -o NAME)"
+    lsblk -dnpe 2,7,11 -o NAME,SIZE | column
+    prompt "Choose the disk: " DISK "$(lsblk -dnpe 2,7,11 -o NAME)"
 
-    MAX="$(lsblk -dn -e 2,7,11 -b -o SIZE "$DISK")"
-    HUMAN="$(echo "$MAX" | numfmt --to=iec)"
-    printf "Set the root partition size (max. %s): " "$HUMAN"
-
-    while read -r ROOTSIZE ; do
-      if [ "$MAX" -gt "$(echo "$ROOTSIZE" | numfmt --from=iec)" ] ; then
-        break
-      else
-        printf "Invalid input! Try again: "
-      fi
-    done
+    MAX="$(lsblk -bdne 2,7,11 -o SIZE "$DISK")"
+    prompt "Set the root partition size (max. $MAX): " ROOTSIZE "$MAX"
 
     [ -d "/sys/firmware/efi" ] && LABEL="gpt" || LABEL="msdos"
-
     parted -s --align optimal -- "$DISK" mklabel "$LABEL" \
       mkpart primary fat32 1M 50M \
       set 1 boot on \
@@ -69,7 +60,7 @@ set -e -u -o pipefail
 
     pacstrap /mnt base base-devel bash-completion expac pkgfile bc grub
     genfstab -U -p /mnt >> /mnt/etc/fstab
-    cp -f {,/mnt}/etc/pacman.d/mirrorlist
+    cp -f /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
   }
 
   { # locale and timezone configuration
@@ -81,8 +72,8 @@ set -e -u -o pipefail
     sed -i "s/#$LOCALE/$LOCALE/" /mnt/etc/locale.gen
 
     arch-chroot /mnt locale-gen
-    echo "LANG=$(grep -m1 "$LOCALE" /mnt/etc/locale.gen \
-      | cut -d" " -f1)" > /mnt/etc/locale.conf
+    echo "LANG=$(awk -v l="$LOCALE" '$0 ~ l {print $1; exit}' \
+      /etc/locale.gen)" > /mnt/etc/locale.conf
 
     TIMEZONE="$(tzselect)"
     ln -sf "/usr/share/zoneinfo/$TIMEZONE" /mnt/etc/localtime

@@ -25,9 +25,12 @@ set -e -u -o pipefail
     done
   }
 
+  show() {
+    printf "%s\n%s\n" "$1" "$(echo "$2" | column)"
+  }
+
   { # disk partitioning
-    echo "Available disks:"
-    lsblk -dnpe 2,7,11 -o NAME,SIZE | column
+    show "Available disks:" "$(lsblk -dnpe 2,7,11 -o NAME,SIZE)"
     prompt "Choose the disk: " DISK "$(lsblk -dnpe 2,7,11 -o NAME)"
 
     MAX="$(lsblk -bdne 2,7,11 -o SIZE "$DISK")"
@@ -52,9 +55,8 @@ set -e -u -o pipefail
   { # mirror configuration and base system install
     MIRROR="$(curl -kLs "archlinux.org/mirrorlist/?use_mirror_status=on")"
     VALID_LOCATIONS="$(echo "$MIRROR" | awk -F", " '{print $2}' | sort -u)"
-    echo "Countries that host mirrors:"
-    echo "$VALID_LOCATIONS" | column
 
+    show "Countries that host mirrors:" "$VALID_LOCATIONS"
     prompt "Country (or nearest location): " COUNTRY "$VALID_LOCATIONS"
     echo "$MIRROR" | sed "/$COUNTRY/{n;s/#S/S/}" > /etc/pacman.d/mirrorlist
 
@@ -64,13 +66,11 @@ set -e -u -o pipefail
   }
 
   { # locale and timezone configuration
-    VALID_LOCALES="$(grep -Eo "[a-z]{2,}_[A-Z]{2}" /etc/locale.gen | sort -u)"
-    echo "Available locales:"
-    echo "$VALID_LOCALES" | column
-
+    VALID_LOCALES="$(grep -Eo "[a-z]+_[A-Z]+" /etc/locale.gen | sort -u)"
+    show "Available locales:" "$VALID_LOCALES"
     prompt "Locale for the system: " LOCALE "$VALID_LOCALES"
-    sed -i "s/#$LOCALE/$LOCALE/" /mnt/etc/locale.gen
 
+    sed -i "s/#$LOCALE/$LOCALE/" /mnt/etc/locale.gen
     arch-chroot /mnt locale-gen
     echo "LANG=$(awk -v l="$LOCALE" '$0 ~ l {print $1; exit}' \
       /etc/locale.gen)" > /mnt/etc/locale.conf

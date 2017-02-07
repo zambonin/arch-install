@@ -62,7 +62,6 @@ set -e -u -o pipefail
 
     pacstrap /mnt base base-devel bash-completion expac pkgfile bc grub
     genfstab -U -p /mnt >> /mnt/etc/fstab
-    cp -f /etc/pacman.d/mirrorlist /mnt/etc/pacman.d/mirrorlist
   }
 
   { # locale and timezone configuration

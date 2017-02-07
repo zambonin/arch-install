@@ -13,28 +13,19 @@ set -e -u -o pipefail
 # connection is terminated when the script is being downloaded.
 {
   prompt() {
+    [ "$4" = "show" ] && printf "%s\n" "$(echo "$3" | column)"
     printf "%s" "$1"
     while read -r VAR ; do
-      if echo "$VAR" | grep -Eqx "$3" || \
-         [ "$3" -gt "$(echo "$VAR" | numfmt --from=iec)" ] ; then
-        eval "$2='$VAR'"
-        break
-      else
-        printf "Invalid input! Try again: "
-      fi
+      echo "$VAR" | grep -Eqx "$3" && break
+      printf "Invalid input! Try again: "
     done
-  }
-
-  show() {
-    printf "%s\n%s\n" "$1" "$(echo "$2" | column)"
+    eval "$2='$VAR'"
   }
 
   { # disk partitioning
-    show "Available disks:" "$(lsblk -dnpe 2,7,11 -o NAME,SIZE)"
-    prompt "Choose the disk: " DISK "$(lsblk -dnpe 2,7,11 -o NAME)"
-
-    MAX="$(lsblk -bdne 2,7,11 -o SIZE "$DISK")"
-    prompt "Set the root partition size (max. $MAX): " ROOTSIZE "$MAX"
+    lsblk -dnpe 2,7,11 -o NAME,SIZE | column
+    printf "Choose the disk and set the root partition size: "
+    read -r DISK ROOTSIZE
 
     [ -d "/sys/firmware/efi" ] && LABEL="gpt" || LABEL="msdos"
     parted -s --align optimal -- "$DISK" mklabel "$LABEL" \
@@ -53,26 +44,22 @@ set -e -u -o pipefail
   }
 
   { # mirror configuration and base system install
-    MIRROR="$(curl -kLs "archlinux.org/mirrorlist/?use_mirror_status=on")"
-    VALID_LOCATIONS="$(echo "$MIRROR" | awk -F", " '{print $2}' | sort -u)"
-
-    show "Countries that host mirrors:" "$VALID_LOCATIONS"
-    prompt "Country (or nearest location): " COUNTRY "$VALID_LOCATIONS"
-    echo "$MIRROR" | sed "/$COUNTRY/{n;s/#S/S/}" > /etc/pacman.d/mirrorlist
+    LOCATIONS="$(awk -F", " '{print $2}' /etc/pacman.d/mirrorlist | sort -u)"
+    prompt "Country (or nearest location): " COUNTRY "$LOCATIONS" show
+    sed -i "s/Se/#Se/;/$COUNTRY/{n;s/#S/S/}" /etc/pacman.d/mirrorlist
 
     pacstrap /mnt base base-devel bash-completion expac pkgfile bc grub
     genfstab -U -p /mnt >> /mnt/etc/fstab
   }
 
   { # locale and timezone configuration
-    VALID_LOCALES="$(grep -Eo "[a-z]+_[A-Z]+" /etc/locale.gen | sort -u)"
-    show "Available locales:" "$VALID_LOCALES"
-    prompt "Locale for the system: " LOCALE "$VALID_LOCALES"
+    LANGUAGES="$(grep -Eo "[a-z]+_[A-Z]+" /etc/locale.gen | sort -u)"
+    prompt "Language for the system: " LNG "$LANGUAGES" show
 
-    sed -i "s/#$LOCALE/$LOCALE/" /mnt/etc/locale.gen
+    sed -i "s/#$LNG/$LNG/" /mnt/etc/locale.gen
     arch-chroot /mnt locale-gen
-    echo "LANG=$(awk -v l="$LOCALE" '$0 ~ l {print $1; exit}' \
-      /etc/locale.gen)" > /mnt/etc/locale.conf
+    LOCALE="$(awk -v l="$LNG" '$0 ~ l {print $1; exit}' /mnt/etc/locale.gen)"
+    echo "LANG=$LOCALE" > /mnt/etc/locale.conf
 
     TIMEZONE="$(tzselect)"
     ln -sf "/usr/share/zoneinfo/$TIMEZONE" /mnt/etc/localtime
@@ -80,16 +67,16 @@ set -e -u -o pipefail
   }
 
   { # hostname, user account and password configuration
-    PATTERN="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
-    prompt "Enter the hostname: " HOST "($PATTERN)(\.($PATTERN)){0,3}"
+    HNAME="[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]{0,61}[a-zA-Z0-9]"
+    prompt "Enter the hostname: " HOST "($HNAME)(\.($HNAME)){0,3}" hide
     echo "$HOST" > /mnt/etc/hostname
     sed -i "7a 127.0.1.1\t$HOST.localdomain\t$HOST" /mnt/etc/hosts
 
     echo "Password for superuser:"
     arch-chroot /mnt passwd
 
-    VALID_NAMES="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
-    prompt "Enter the username: " USER "$VALID_NAMES"
+    UNAME="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
+    prompt "Enter the username: " USER "$UNAME" hide
     arch-chroot /mnt useradd -m -g users -G wheel "$USER"
 
     echo "Password for $USER:"

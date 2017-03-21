@@ -44,7 +44,7 @@ set -e -u -o pipefail
   }
 
   { # mirror configuration and base system install
-    LOCATIONS="$(awk -F", " '{print $2}' /etc/pacman.d/mirrorlist | sort -u)"
+    LOCATIONS="$(sed '1,6d;/^#/!d;s/## //g' /etc/pacman.d/mirrorlist | sort -u)"
     prompt "Country (or nearest location): " COUNTRY "$LOCATIONS" show
     sed -i "s/Se/#Se/;/$COUNTRY/{n;s/#S/S/}" /etc/pacman.d/mirrorlist
 
@@ -58,7 +58,7 @@ set -e -u -o pipefail
 
     sed -i "s/#$LNG/$LNG/" /mnt/etc/locale.gen
     arch-chroot /mnt locale-gen
-    LOCALE="$(awk -v l="$LNG" '$0 ~ l {print $1; exit}' /mnt/etc/locale.gen)"
+    LOCALE="$(awk '!/#/ {print $1; exit}' /mnt/etc/locale.gen)"
     echo "LANG=$LOCALE" > /mnt/etc/locale.conf
 
     TIMEZONE="$(tzselect)"

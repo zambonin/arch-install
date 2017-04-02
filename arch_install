@@ -39,8 +39,9 @@ set -e -u -o pipefail
     mkfs.ext4 "${DISK}3"
 
     mount "${DISK}2" /mnt
-    mkdir -p /mnt/boot
+    mkdir -p /mnt/boot /mnt/home
     mount "${DISK}1" /mnt/boot
+    mount "${DISK}3" /mnt/home
   }
 
   { # mirror configuration and base system install

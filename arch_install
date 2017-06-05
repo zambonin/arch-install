@@ -74,14 +74,14 @@ set -e -u -o pipefail
     sed -i "7a 127.0.1.1\t$HOST.localdomain\t$HOST" /mnt/etc/hosts
 
     echo "Password for superuser:"
-    arch-chroot /mnt passwd
+    until arch-chroot /mnt passwd ; do : ; done
 
     UNAME="[a-z_]([a-z0-9_]{,30}[$]|[a-z0-9_]{,31})"
     prompt "Enter the username: " USER "$UNAME" hide
     arch-chroot /mnt useradd -m -g users -G wheel "$USER"
 
     echo "Password for $USER:"
-    arch-chroot /mnt passwd "$USER"
+    until arch-chroot /mnt passwd "$USER" ; do : ; done
     echo "%wheel ALL=(ALL) ALL" > /mnt/etc/sudoers.d/99_enable_wheel
   }
 

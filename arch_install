@@ -29,9 +29,9 @@ set -e -u -o pipefail
 
     [ -d "/sys/firmware/efi" ] && LABEL="gpt" || LABEL="msdos"
     parted -s --align optimal -- "$DISK" mklabel "$LABEL" \
-      mkpart primary fat32 1M 50M \
+      mkpart primary fat32 1M 100M \
       set 1 boot on \
-      mkpart primary ext3 50M "$ROOTSIZE" \
+      mkpart primary ext3 100M "$ROOTSIZE" \
       mkpart primary ext3 "$ROOTSIZE" 100%
 
     mkfs.vfat -F32 "${DISK}1"

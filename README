@@ -26,7 +26,7 @@ Some caveats about the installation:
   * to change the EFI system partition size, use the following command
     for installation (use valid `parted` units [2]):
 
-      sh <(curl -Ls git.io/vzWco | sed "s/50M/$BOOTSIZE/")
+      sh <(curl -Ls git.io/vzWco | sed "s/100M/$BOOTSIZE/")
 
   * likewise, to change the `home` partition size, use:
 

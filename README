@@ -3,36 +3,42 @@ Linux; it will automate file editing and creation, and some system-wide
 configurations. It intends to be POSIX-compliant and follow the Installation
 Guide [1] whenever possible.
 
-It can be run with the following command on an Arch Linux live media shell:
+It can be run with the following one-liner on Arch Linux's live media shell,
+`zsh`, that features process substitution [2]. One cannot pipe `curl` to `sh`,
+since the script needs a lot of user input.
 
     # sh <(curl -Ls git.io/vzWco)
 
 Some caveats about the installation:
 
-  * the script cannot be executed by piping `curl` to `sh`, since it
-    needs a lot of user input
+  * when using old installation media, the script will fail to parse
+    names of countries correctly from the mirrorlist, and `pacman`'s
+    keyring may be outdated, preventing package installation. as such,
+    these need to be updated before the script is executed:
 
-  * when using old installation media, at least `archlinux-keyring`
-    should be updated
+    # pacman-key --refresh-keys
+    # curl -o /etc/pacman.d/mirrorlist https://archlinux.org/mirrorlist/all/
 
-  * the script is meant to be used with a fully formatted disk; unknown
-    behavior is expected otherwise
+  * to change the mount folder, use the following command:
 
-  * to change the mount folder, use the following command instead (ignore
-    the folder's trailing slash):
-
-      sh <(curl -Ls git.io/vzWco | sed "s/mnt/$MOUNTPOINT/")
+    # sh <(curl -Ls git.io/vzWco | sed "s|/mnt|$MOUNTPOINT|g")
 
   * to change the EFI system partition size, use the following command
-    for installation (use valid `parted` units [2]):
+    for installation (use valid `parted` units [3]):
 
-      sh <(curl -Ls git.io/vzWco | sed "s/100M/$BOOTSIZE/")
+    # sh <(curl -Ls git.io/vzWco | sed "s/100M/$BOOTSIZE/g")
 
   * likewise, to change the `home` partition size, use:
 
-      sh <(curl -Ls git.io/vzWco | sed "s/100%/$HOMESIZE/")
+    # sh <(curl -Ls git.io/vzWco | sed "s/100%/$HOMESIZE/")
 
-  * one can save the script locally and customize all of those
+  * if using UEFI, the bootloader installation step can be ignored
+    entirely by telling the motherboard to boot Arch directly [4]
+
+One can save the script locally and customize other aspects of the
+installation if needed.
 
 [1] https://wiki.archlinux.org/index.php/Installation_guide
-[2] http://www.gnu.org/software/parted/manual/parted.html#unit
+[2] http://tldp.org/LDP/abs/html/process-sub.html
+[3] http://www.gnu.org/software/parted/manual/parted.html#unit
+[4] https://wiki.archlinux.org/index.php/EFISTUB

@@ -45,8 +45,8 @@ set -e -u -o pipefail
   }
 
   { # mirror configuration and base system install
-    LOCATIONS="$(sed '1,6d;/^#/!d;s/## //g' /etc/pacman.d/mirrorlist | sort -u)"
-    prompt "Country (or nearest location): " COUNTRY "$LOCATIONS" show
+    PLACES="$(sed '1,/^$/d;/##/!d;s/## //g' /etc/pacman.d/mirrorlist | sort -u)"
+    prompt "Country (or nearest location): " COUNTRY "$PLACES" show
     sed -i "s/Se/#Se/;/$COUNTRY/{n;s/#S/S/}" /etc/pacman.d/mirrorlist
 
     pacstrap /mnt base base-devel bash-completion expac pkgfile bc grub

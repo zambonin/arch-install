@@ -34,14 +34,14 @@ set -e -u -o pipefail
       mkpart primary ext3 100M "$ROOTSIZE" \
       mkpart primary ext3 "$ROOTSIZE" 100%
 
-    mkfs.vfat -F32 "${DISK}1"
-    mkfs.ext4 "${DISK}2"
-    mkfs.ext4 "${DISK}3"
+    mkfs.vfat -n "BOOT-PART" -F32 "$(lsblk -lnpo NAME "$DISK" | sed -n 2p)"
+    mkfs.ext4 -L "arch-root" "$(lsblk -lnpo NAME "$DISK" | sed -n 3p)"
+    mkfs.ext4 -L "arch-home" "$(lsblk -lnpo NAME "$DISK" | sed -n 4p)"
 
-    mount "${DISK}2" /mnt
+    mount /dev/disk/by-label/arch-root /mnt
     mkdir -p /mnt/boot /mnt/home
-    mount "${DISK}1" /mnt/boot
-    mount "${DISK}3" /mnt/home
+    mount /dev/disk/by-label/BOOT-PART /mnt/boot
+    mount /dev/disk/by-label/arch-home /mnt/home
   }
 
   { # mirror configuration and base system install

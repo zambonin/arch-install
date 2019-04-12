@@ -3,17 +3,17 @@ Linux; it will automate file editing and creation, and some system-wide
 configurations. It intends to be POSIX-compliant and follow the Installation
 Guide [1] whenever possible.
 
-It can be run with the following one-liner on Arch Linux's live media shell,
-`zsh`, that features process substitution [2]. One cannot pipe `curl` to `sh`,
-since the script needs a lot of user input.
+It can be run with the following one-liner on Arch Linux's installation media
+shell. One cannot pipe `curl` to `sh`, since the script needs a lot of user
+input.
 
     # sh <(curl -Ls git.io/vzWco)
 
 Some caveats about the installation:
 
   * when using old installation media, the script will fail to parse
-    names of countries correctly from the mirrorlist, and `pacman`'s
-    keyring may be outdated, preventing package installation. as such,
+    names of countries correctly from the mirrorlist, and pacman's
+    keyring may be outdated, preventing package installation. As such,
     these need to be updated before the script is executed:
 
     # pacman-key --refresh-keys
@@ -24,7 +24,7 @@ Some caveats about the installation:
     # sh <(curl -Ls git.io/vzWco | sed "s|/mnt|$MOUNTPOINT|g")
 
   * to change the EFI system partition size, use the following command
-    for installation (use valid `parted` units [3]):
+    for installation and input valid `parted` units [2]:
 
     # sh <(curl -Ls git.io/vzWco | sed "s/100M/$BOOTSIZE/g")
 
@@ -32,13 +32,8 @@ Some caveats about the installation:
 
     # sh <(curl -Ls git.io/vzWco | sed "s/100%/$HOMESIZE/")
 
-  * if using UEFI, the bootloader installation step can be ignored
-    entirely by telling the motherboard to boot Arch directly [4]
-
 One can save the script locally and customize other aspects of the
 installation if needed.
 
 [1] https://wiki.archlinux.org/index.php/Installation_guide
-[2] http://tldp.org/LDP/abs/html/process-sub.html
-[3] http://www.gnu.org/software/parted/manual/parted.html#unit
-[4] https://wiki.archlinux.org/index.php/EFISTUB
+[2] http://www.gnu.org/software/parted/manual/parted.html#unit

@@ -27,21 +27,19 @@ set -e -u -o pipefail
     printf "Choose the disk and set the root partition size: "
     read -r DISK ROOTSIZE
 
-    [ -d "/sys/firmware/efi" ] && LABEL="gpt" || LABEL="msdos"
-    parted -s --align optimal -- "$DISK" mklabel "$LABEL" \
-      mkpart primary fat32 1M 100M \
-      set 1 boot on \
-      mkpart primary ext3 100M "$ROOTSIZE" \
-      mkpart primary ext3 "$ROOTSIZE" 100%
+    parted --script --align optimal -- "$DISK" mklabel gpt \
+      mkpart primary fat32 1M 100M name 1 'boot' set 1 boot on \
+      mkpart primary ext3 100M "$ROOTSIZE" name 2 'root' \
+      mkpart primary ext3 "$ROOTSIZE" 100% name 3 'home'
 
-    mkfs.vfat -n "BOOT-PART" -F32 "$(lsblk -lnpo NAME "$DISK" | sed -n 2p)"
-    mkfs.ext4 -L "arch-root" "$(lsblk -lnpo NAME "$DISK" | sed -n 3p)"
-    mkfs.ext4 -L "arch-home" "$(lsblk -lnpo NAME "$DISK" | sed -n 4p)"
+    mkfs.ext4 /dev/disk/by-partlabel/root
+    mkfs.vfat -F32 /dev/disk/by-partlabel/boot
+    mkfs.ext4 /dev/disk/by-partlabel/home
 
-    mount /dev/disk/by-label/arch-root /mnt
+    mount PARTLABEL=root /mnt
     mkdir -p /mnt/boot /mnt/home
-    mount /dev/disk/by-label/BOOT-PART /mnt/boot
-    mount /dev/disk/by-label/arch-home /mnt/home
+    mount PARTLABEL=boot /mnt/boot
+    mount PARTLABEL=home /mnt/home
   }
 
   { # mirror configuration and base system install
@@ -49,7 +47,7 @@ set -e -u -o pipefail
     prompt "Country (or nearest location): " COUNTRY "$PLACES" show
     sed -i "s/Se/#Se/;/$COUNTRY/{n;s/#S/S/}" /etc/pacman.d/mirrorlist
 
-    pacstrap /mnt base base-devel bash-completion expac pkgfile bc grub
+    pacstrap /mnt base base-devel bash-completion expac pkgfile bc efibootmgr
     genfstab -U -p /mnt >> /mnt/etc/fstab
   }
 
@@ -62,8 +60,7 @@ set -e -u -o pipefail
     LOCALE="$(awk '!/#/ {print $1; exit}' /mnt/etc/locale.gen)"
     echo "LANG=$LOCALE" > /mnt/etc/locale.conf
 
-    TIMEZONE="$(tzselect)"
-    ln -sf "/usr/share/zoneinfo/$TIMEZONE" /mnt/etc/localtime
+    ln -sf "/usr/share/zoneinfo/$(tzselect)" /mnt/etc/localtime
     arch-chroot /mnt hwclock --systohc --utc
   }
 
@@ -86,13 +83,8 @@ set -e -u -o pipefail
   }
 
   { # bootloader installation
-    if [ -d "/sys/firmware/efi" ] ; then
-      pacman -r /mnt -S --noconfirm efibootmgr
-      arch-chroot /mnt grub-install --target=x86_64-efi \
-        --efi-directory=/boot --bootloader-id=boot
-    else
-      arch-chroot /mnt grub-install --target=i386-pc "$DISK"
-    fi
-    arch-chroot /mnt grub-mkconfig -o /boot/grub/grub.cfg
+    arch-chroot /mnt efibootmgr --disk "$DISK" --part 1 \
+      --create --label "Arch Linux" --loader /vmlinuz-linux --unicode \
+      "root=/dev/disk/by-partlabel/root rw initrd=\\initramfs-linux.img"
   }
 }

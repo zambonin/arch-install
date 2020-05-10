@@ -8,6 +8,10 @@
 # Exits if any command or pipe fails, or if variables are unset.
 set -e -u -o pipefail
 
+# Pass list of packages from environment to `pacstrap`.
+EXTRA_PKG="${EXTRA_PKG:-"bash-completion bc dhcpcd diffutils efibootmgr expac \
+  linux linux-firmware man-db man-pages netctl openssh pkgfile vim"}"
+
 # Wrapping the script inside curly brackets ensures it will be executed only
 # if the closing bracket is reached, preventing undesired behavior if the
 # connection is terminated when the script is being downloaded.
@@ -47,7 +51,7 @@ set -e -u -o pipefail
     prompt "Country (or nearest location): " COUNTRY "$PLACES" show
     sed -i "s/Se/#Se/;/$COUNTRY/{n;s/#S/S/}" /etc/pacman.d/mirrorlist
 
-    pacstrap /mnt base base-devel bash-completion expac pkgfile bc efibootmgr
+    pacstrap /mnt base base-devel "$EXTRA_PKG"
     genfstab -U -p /mnt >> /mnt/etc/fstab
   }
 

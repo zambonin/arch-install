@@ -32,6 +32,12 @@ Some caveats about the installation:
 
     # sh <(curl -Ls git.io/vzWco | sed "s/100%/$HOMESIZE/")
 
+  * the `base` group was converted into a metapackage and many arguably useful
+    packages are not installed by default. To pass extra packages to
+    `pacstrap`, use:
+
+    # EXTRA_PKG="vim" sh <(curl -Ls git.io/vzWco)
+
 One can save the script locally and customize other aspects of the
 installation if needed.
 

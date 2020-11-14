@@ -47,11 +47,11 @@ EXTRA_PKG="${EXTRA_PKG:-"bash-completion bc dhcpcd diffutils efibootmgr expac \
   }
 
   { # mirror configuration and base system install
-    PLACES="$(sed '1,/^$/d;/##/!d;s/## //g' /etc/pacman.d/mirrorlist | sort -u)"
+    PLACES="$(reflector --list-countries | awk '{print $(NF - 1)}')"
     prompt "Country (or nearest location): " COUNTRY "$PLACES" show
-    sed -i "s/Se/#Se/;/$COUNTRY/{n;s/#S/S/}" /etc/pacman.d/mirrorlist
+    reflector --country "$COUNTRY" --save /etc/pacman.d/mirrorlist
 
-    pacstrap /mnt base base-devel "$EXTRA_PKG"
+    pacstrap /mnt base base-devel $EXTRA_PKG
     genfstab -U -p /mnt >> /mnt/etc/fstab
   }
 
